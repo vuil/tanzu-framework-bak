@@ -5,6 +5,8 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	packagev1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -246,17 +248,29 @@ func (r *AddonReconciler) reconcileNormal(
 		return ctrl.Result{}, err
 	}
 
-	// reconcile each addon secret
+	// Get the repository used for all images
+	imageRepository, err := util.GetAddonImageRepository(ctx, r.Client, bom)
+	if err != nil || imageRepository == "" {
+		log.Info("Error getting image repository")
+		return ctrl.Result{}, err
+	}
+
 	var (
 		errors []error
 		result ctrl.Result
 	)
+	// Reconcile core package repository in the cluster
+	result, err = r.reconcileCorePackageRepository(ctx, log, cluster, imageRepository, bom)
+	if err != nil {
+		log.Error(err, "Error reconciling core package repository")
+		errors = append(errors, err)
+	}
 
 	for i := range addonSecrets.Items {
 		addonSecret := addonSecrets.Items[i]
 		logWithContext := log.WithValues(constants.AddonSecretNamespaceLogKey, addonSecret.Namespace, constants.AddonSecretNameLogKey, addonSecret.Name)
 
-		result, err = r.reconcileAddonSecret(ctx, logWithContext, cluster, remoteClient, &addonSecret, bom)
+		result, err = r.reconcileAddonSecret(ctx, log, cluster, remoteClient, &addonSecret, imageRepository, bom)
 		if err != nil {
 			logWithContext.Error(err, "Error reconciling addon secret")
 			errors = append(errors, err)
@@ -271,6 +285,42 @@ func (r *AddonReconciler) reconcileNormal(
 	return result, nil
 }
 
+// reconcileCorePackageRepository reconciles the core package repository in the cluster
+func (r *AddonReconciler) reconcileCorePackageRepository(
+	ctx context.Context,
+	log logr.Logger,
+	cluster *clusterapiv1alpha3.Cluster,
+	imageRepository string,
+	bom *bomtypes.Bom) (_ ctrl.Result, retErr error) {
+
+	repositoryImage, err := bom.GetImageInfo(constants.TKGCorePackageRepositoryComponentName, "", constants.TKGCorePackageRepositoryImageName)
+	if err != nil {
+		log.Error(err, "Core package repository image not found", constants.PackageRepositoryLogKey, constants.TKGCorePackageRepositoryName)
+		return ctrl.Result{}, err
+	}
+
+	// build the core PackageRepository CR
+	corePackageRepository := &packagev1alpha1.PackageRepository{}
+
+	// apply the core PackageRepository CR
+	addonDataValuesSecretMutateFn := func() error {
+		corePackageRepository.ObjectMeta.Name = constants.TKGCorePackageRepositoryName
+		corePackageRepository.Spec.Fetch.ImgpkgBundle.Image = fmt.Sprintf("%s/%s:%s", imageRepository, repositoryImage.ImagePath, repositoryImage.Tag)
+		return nil
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, r.Client, corePackageRepository, addonDataValuesSecretMutateFn)
+	if err != nil {
+		log.Error(err, "Error creating or patching core package repository")
+		return ctrl.Result{}, err
+	}
+	r.logOperationResult(log, "core package repository", result)
+
+	// TODO: Wait until the core package repository is reconciled successfully
+
+	return ctrl.Result{}, nil
+}
+
 // reconcileNormal reconciles the addons belonging to the cluster
 func (r *AddonReconciler) reconcileAddonSecret(
 	ctx context.Context,
@@ -278,6 +328,7 @@ func (r *AddonReconciler) reconcileAddonSecret(
 	cluster *clusterapiv1alpha3.Cluster,
 	clusterClient client.Client,
 	addonSecret *corev1.Secret,
+	imageRepository string,
 	bom *bomtypes.Bom) (_ ctrl.Result, retErr error) {
 
 	var (
@@ -323,7 +374,7 @@ func (r *AddonReconciler) reconcileAddonSecret(
 		return result, nil
 	}
 
-	result, err := r.reconcileAddonSecretNormal(ctx, log, addonName, cluster, clusterClient, addonSecret, &patchAddonSecret, bom)
+	result, err := r.reconcileAddonSecretNormal(ctx, log, addonName, cluster, clusterClient, addonSecret, &patchAddonSecret, imageRepository, bom)
 	if err != nil {
 		log.Error(err, "Error reconciling addon secret", constants.AddonNameLogKey, addonName)
 		return ctrl.Result{}, err
@@ -375,18 +426,13 @@ func (r *AddonReconciler) reconcileAddonSecretNormal(
 	clusterClient client.Client,
 	addonSecret *corev1.Secret,
 	patchAddonSecret *bool,
+	imageRepository string,
 	bom *bomtypes.Bom) (ctrl.Result, error) {
 
 	// get addon config from BOM
 	addonConfig, err := bom.GetAddon(addonName)
 	if err != nil {
 		log.Info("Addon config not found from BOM for addon", constants.AddonNameLogKey, addonName)
-		return ctrl.Result{}, err
-	}
-
-	imageRepository, err := util.GetAddonImageRepository(ctx, r.Client, bom)
-	if err != nil || imageRepository == "" {
-		log.Info("Addon image repository not found for addon", constants.AddonNameLogKey, addonName)
 		return ctrl.Result{}, err
 	}
 

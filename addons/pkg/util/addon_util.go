@@ -6,6 +6,7 @@ package util
 import (
 	"context"
 	"fmt"
+	packagev1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
 	"strconv"
 
 	"gopkg.in/yaml.v2"
@@ -116,7 +117,7 @@ func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository string, bom *bomt
 	return outputBytes, nil
 }
 
-// GetApp gets the kapp from cluster
+// GetApp gets the app CR from cluster
 func GetApp(ctx context.Context,
 	localClient client.Client,
 	remoteClient client.Client,
@@ -141,6 +142,24 @@ func GetApp(ctx context.Context,
 	}
 
 	return app, nil
+}
+
+// GetInstalledPackage gets the InstalledPackage CR from cluster
+func GetInstalledPackage(ctx context.Context,
+	remoteClient client.Client,
+	addonSecret *corev1.Secret) (*packagev1alpha1.InstalledPackage, error) {
+
+	ipkg := &packagev1alpha1.InstalledPackage{}
+	ipkgObjectKey := client.ObjectKey{
+		Name:      GenerateAppNameFromAddonSecret(addonSecret),
+		Namespace: GenerateAppNamespaceFromAddonSecret(addonSecret),
+	}
+
+	if err := remoteClient.Get(ctx, ipkgObjectKey, ipkg); err != nil {
+		return nil, err
+	}
+
+	return ipkg, nil
 }
 
 // IsAppPresent returns true if app is present on the cluster
@@ -178,4 +197,20 @@ func IsAddonPaused(addonSecret *corev1.Secret) bool {
 	}
 	_, ok := annotations[addontypes.AddonPausedAnnotation]
 	return ok
+}
+
+// IsInstalledPackagePresent returns true if InstalledPackage is present on the cluster
+func IsInstalledPackagePresent(ctx context.Context,
+	localClient client.Client,
+	addonSecret *corev1.Secret) (bool, error) {
+
+	_, err := GetInstalledPackage(ctx, localClient, addonSecret)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return false, err
+		}
+		return false, nil
+	}
+
+	return true, nil
 }

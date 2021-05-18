@@ -38,6 +38,7 @@ func init() {
 
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = kappctrl.AddToScheme(scheme)
+	_ = packagev1alpha1.AddToScheme(scheme)
 	_ = runtanzuv1alpha1.AddToScheme(scheme)
 	_ = clusterapiv1alpha3.AddToScheme(scheme)
 	_ = controlplanev1alpha3.AddToScheme(scheme)

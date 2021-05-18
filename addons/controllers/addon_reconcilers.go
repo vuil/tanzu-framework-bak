@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	packagev1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
+
 	"github.com/pkg/errors"
 
 	"github.com/go-logr/logr"
@@ -193,16 +195,18 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretNormal(
 		},
 	}
 
-	imageInfoBytes, err := util.GetImageInfo(addonConfig, imageRepository, bom)
-	if err != nil {
-		log.Error(err, "Error retrieving addon image info")
-		return err
-	}
-
 	addonDataValuesSecretMutateFn := func() error {
 		addonDataValuesSecret.Type = corev1.SecretTypeOpaque
 		addonDataValuesSecret.Data = addonSecret.Data
-		addonDataValuesSecret.Data["imageInfo.yaml"] = imageInfoBytes
+		if len(addonConfig.AddonContainerImages) > 0 {
+			imageInfoBytes, err := util.GetImageInfo(addonConfig, imageRepository, bom)
+			if err != nil {
+				log.Error(err, "Error retrieving addon image info")
+				return err
+			}
+			addonDataValuesSecret.Data["imageInfo.yaml"] = imageInfoBytes
+		}
+
 		return nil
 	}
 
@@ -241,6 +245,33 @@ func (r *AddonReconciler) reconcileAddonAppDelete(
 	}
 
 	log.Info("Deleted app")
+
+	return nil
+}
+
+func (r *AddonReconciler) reconcileAddonInstalledPackageDelete(
+	ctx context.Context,
+	log logr.Logger,
+	clusterClient client.Client,
+	addonSecret *corev1.Secret) error {
+
+	ipkg := &packagev1alpha1.InstalledPackage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
+			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+		},
+	}
+
+	if err := clusterClient.Delete(ctx, ipkg); err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("Addon InstalledPackage not found")
+			return nil
+		}
+		log.Error(err, "Error deleting addon InstalledPackage")
+		return err
+	}
+
+	log.Info("Deleted InstalledPackage")
 
 	return nil
 }
@@ -396,6 +427,63 @@ func (r *AddonReconciler) reconcileAddonAppNormal(
 	return nil
 }
 
+func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
+	ctx context.Context,
+	log logr.Logger,
+	remoteApp bool,
+	remoteCluster *clusterapiv1alpha3.Cluster,
+	clusterClient client.Client,
+	addonSecret *corev1.Secret,
+	addonConfig *bomtypes.Addon,
+	imageRepository string,
+	bom *bomtypes.Bom) error {
+
+	addonName := util.GetAddonNameFromAddonSecret(addonSecret)
+
+	/*
+	 * remoteApp means App CR on the management cluster that kapp-controller uses to remotely manages set of objects deployed in a workload cluster.
+	 * workload clusters kubeconfig details need to be added for remote App so that kapp-controller on management
+	 * cluster can reconcile and push the addon/app to the workload cluster
+	 */
+	if remoteApp {
+		// TODO: special kapp-controller on wlc case here
+	}
+
+	ipkg := &packagev1alpha1.InstalledPackage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
+			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+		},
+	}
+
+	appMutateFn := func() error {
+		if ipkg.ObjectMeta.Annotations == nil {
+			ipkg.ObjectMeta.Annotations = make(map[string]string)
+		}
+
+		ipkg.ObjectMeta.Annotations[addontypes.AddonTypeAnnotation] = fmt.Sprintf("%s/%s", addonConfig.Category, addonName)
+		ipkg.ObjectMeta.Annotations[addontypes.AddonNameAnnotation] = addonSecret.Name
+		ipkg.ObjectMeta.Annotations[addontypes.AddonNamespaceAnnotation] = addonSecret.Namespace
+
+		ipkg.Spec.ServiceAccountName = addonconstants.TKGAddonsAppServiceAccount
+
+		ipkg.Spec.PkgRef = &packagev1alpha1.PackageRef{PublicName: addonConfig.PackageName, Version: addonConfig.PackageVersion}
+		ipkg.Spec.Values = []packagev1alpha1.InstalledPackageValues{{&packagev1alpha1.InstalledPackageValuesSecretRef{Name: "", Key: ""}}}
+
+		return nil
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, ipkg, appMutateFn)
+	if err != nil {
+		log.Error(err, "Error creating or patching addon")
+		return err
+	}
+
+	r.logOperationResult(log, "app", result)
+
+	return nil
+}
+
 func (r *AddonReconciler) reconcileAddonDelete(
 	ctx context.Context,
 	log logr.Logger,
@@ -409,9 +497,16 @@ func (r *AddonReconciler) reconcileAddonDelete(
 
 	clusterClient := util.GetClientFromAddonSecret(addonSecret, r.Client, remoteClusterClient)
 
-	if err := r.reconcileAddonAppDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
-		log.Error(err, "Error reconciling addon app delete")
-		return err
+	if ok, _ := util.IsInstalledPackagePresent(ctx, clusterClient, addonSecret); ok {
+		if err := r.reconcileAddonInstalledPackageDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
+			log.Error(err, "Error reconciling addon InstalledPackage delete")
+			return err
+		}
+	} else {
+		if err := r.reconcileAddonAppDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
+			log.Error(err, "Error reconciling addon app delete")
+			return err
+		}
 	}
 
 	if err := r.reconcileAddonDataValuesSecretDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
@@ -466,9 +561,17 @@ func (r *AddonReconciler) reconcileAddonNormal(
 		return err
 	}
 
-	if err := r.reconcileAddonAppNormal(ctx, logWithContext, remoteApp, remoteCluster, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
-		log.Error(err, "Error reconciling addon app")
-		return err
+	// TODO: special case for kapp-controller on workload cluster
+	if addonConfig.PackageName != "" && addonConfig.PackageVersion != "" {
+		if err := r.reconcileAddonInstalledPackageNormal(ctx, logWithContext, remoteApp, remoteCluster, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
+			log.Error(err, "Error reconciling addon InstalledPackage")
+			return err
+		}
+	} else {
+		if err := r.reconcileAddonAppNormal(ctx, logWithContext, remoteApp, remoteCluster, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
+			log.Error(err, "Error reconciling addon app")
+			return err
+		}
 	}
 
 	return nil
