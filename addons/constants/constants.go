@@ -56,11 +56,6 @@ const (
 	PackageRepositoryLogKey = "package-repository"
 
 	/* name sections */
-	// TKGCorePackageRepositoryComponentName is the name of component that includes the package and repository images
-	TKGCorePackageRepositoryComponentName = "tkg-core-packages"
-
-	// TKGCorePackageRepositoryImageName is the name of core package repository image
-	TKGCorePackageRepositoryImageName = "tanzuCorePackageRepositoryImage"
 
 	//TKGCorePackageRepositoryName is the name of core package repository applied in the cluster
 	TKGCorePackageRepositoryName = "tkg-core-package-repository"

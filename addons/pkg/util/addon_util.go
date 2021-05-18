@@ -5,8 +5,13 @@ package util
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	packagev1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
+	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
+	pkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apiserver/apis/packages/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/cluster-api/util/secret"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"strconv"
 
 	"gopkg.in/yaml.v2"
@@ -79,6 +84,15 @@ func GenerateAppNamespaceFromAddonSecret(addonSecret *corev1.Secret) string {
 	return constants.TKGAddonsAppNamespace
 }
 
+// GetCorePackageRepositoryImageFromBom generates the core PackageRepository Object
+func GetCorePackageRepositoryImageFromBom(bom *bomtypes.Bom) (*bomtypes.ImageInfo, error) {
+	repositoryImage, err := bom.GetImageInfo(constants.TKGCorePackageRepositoryComponentName, "", constants.TKGCorePackageRepositoryImageName)
+	if err != nil {
+		return nil, err
+	}
+	return &repositoryImage, nil
+}
+
 // GetClientFromAddonSecret gets appropriate cluster client given addon secret
 func GetClientFromAddonSecret(addonSecret *corev1.Secret, localClient, remoteClient client.Client) client.Client {
 	var clusterClient client.Client
@@ -117,6 +131,59 @@ func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository string, bom *bomt
 	return outputBytes, nil
 }
 
+// GetTemplateImageUrl gets the image template image url of an addon
+func GetTemplateImageUrl(addonConfig *bomtypes.Addon, imageRepository string, bom *bomtypes.Bom) (string, error) {
+	/*example addon section in BOM:
+	  kapp-controller:
+	    category: addons-management
+	    clusterTypes:
+	    - management
+	    - workload
+	    templatesImagePath: tanzu_core/addons/kapp-controller-templates (legacy)
+	    templatesImageTag: v1.3.0 (legacy)
+	    addonTemplatesImage:
+	    - componentRef: tanzu_core_addons
+	      imageRefs:
+	      - kappControllerTemplatesImage
+	    addonContainerImages:
+	    - componentRef: kapp-controller
+	      imageRefs:
+	      - kappControllerImage
+	*/
+	var templateImagePath, templateImageTag string
+	if addonConfig.PackageName != "" && addonConfig.PackageVersion != "" {
+		addonPackageImage, err := bom.GetImageInfo(constants.TKGCorePackageRepositoryComponentName, addonConfig.PackageVersion, addonConfig.PackageName)
+		if err != nil {
+			return "", err
+		}
+		templateImagePath = addonPackageImage.ImagePath
+		templateImageTag = addonPackageImage.Tag
+
+	} else if len(addonConfig.AddonTemplatesImage) < 1 || len(addonConfig.AddonTemplatesImage[0].ImageRefs) < 1 {
+		// if AddonTemplatesImage and AddonTemplatesImage are not present, use the older BOM format
+		templateImagePath = addonConfig.TemplatesImagePath
+		templateImageTag = addonConfig.TemplatesImageTag
+
+	} else {
+		templateImageComponentName := addonConfig.AddonTemplatesImage[0].ComponentRef
+		templateImageName := addonConfig.AddonTemplatesImage[0].ImageRefs[0]
+
+		templateImage, err := bom.GetImageInfo(templateImageComponentName, "", templateImageName)
+		if err != nil {
+			return "", err
+		}
+		templateImagePath = templateImage.ImagePath
+		templateImageTag = templateImage.Tag
+	}
+
+	if templateImagePath == "" || templateImageTag == "" {
+		err := errors.New(fmt.Sprintf("unable to get template image"))
+		return "", err
+	}
+
+	return fmt.Sprintf("%s/%s:%s", imageRepository, templateImagePath, templateImageTag), nil
+}
+
 // GetApp gets the app CR from cluster
 func GetApp(ctx context.Context,
 	localClient client.Client,
@@ -147,9 +214,9 @@ func GetApp(ctx context.Context,
 // GetInstalledPackage gets the InstalledPackage CR from cluster
 func GetInstalledPackage(ctx context.Context,
 	remoteClient client.Client,
-	addonSecret *corev1.Secret) (*packagev1alpha1.InstalledPackage, error) {
+	addonSecret *corev1.Secret) (*ipkgv1alpha1.InstalledPackage, error) {
 
-	ipkg := &packagev1alpha1.InstalledPackage{}
+	ipkg := &ipkgv1alpha1.InstalledPackage{}
 	ipkgObjectKey := client.ObjectKey{
 		Name:      GenerateAppNameFromAddonSecret(addonSecret),
 		Namespace: GenerateAppNamespaceFromAddonSecret(addonSecret),

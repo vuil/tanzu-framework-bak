@@ -6,7 +6,7 @@ package controllers
 import (
 	"context"
 	"fmt"
-	packagev1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
+	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -260,7 +260,7 @@ func (r *AddonReconciler) reconcileNormal(
 		result ctrl.Result
 	)
 	// Reconcile core package repository in the cluster
-	result, err = r.reconcileCorePackageRepository(ctx, log, cluster, imageRepository, bom)
+	result, err = r.reconcileCorePackageRepository(ctx, log, remoteClient, imageRepository, bom)
 	if err != nil {
 		log.Error(err, "Error reconciling core package repository")
 		errors = append(errors, err)
@@ -289,18 +289,18 @@ func (r *AddonReconciler) reconcileNormal(
 func (r *AddonReconciler) reconcileCorePackageRepository(
 	ctx context.Context,
 	log logr.Logger,
-	cluster *clusterapiv1alpha3.Cluster,
+	clusterClient client.Client,
 	imageRepository string,
 	bom *bomtypes.Bom) (_ ctrl.Result, retErr error) {
 
-	repositoryImage, err := bom.GetImageInfo(constants.TKGCorePackageRepositoryComponentName, "", constants.TKGCorePackageRepositoryImageName)
+	repositoryImage, err := util.GetCorePackageRepositoryImageFromBom(bom)
 	if err != nil {
 		log.Error(err, "Core package repository image not found", constants.PackageRepositoryLogKey, constants.TKGCorePackageRepositoryName)
 		return ctrl.Result{}, err
 	}
 
 	// build the core PackageRepository CR
-	corePackageRepository := &packagev1alpha1.PackageRepository{}
+	corePackageRepository := &ipkgv1alpha1.PackageRepository{}
 
 	// apply the core PackageRepository CR
 	addonDataValuesSecretMutateFn := func() error {
@@ -309,14 +309,14 @@ func (r *AddonReconciler) reconcileCorePackageRepository(
 		return nil
 	}
 
-	result, err := controllerutil.CreateOrPatch(ctx, r.Client, corePackageRepository, addonDataValuesSecretMutateFn)
+	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, corePackageRepository, addonDataValuesSecretMutateFn)
 	if err != nil {
 		log.Error(err, "Error creating or patching core package repository")
 		return ctrl.Result{}, err
 	}
 	r.logOperationResult(log, "core package repository", result)
 
-	// TODO: Wait until the core package repository is reconciled successfully
+	// TODO: Not sure if we need to wait until the core package repository is reconciled successfully
 
 	return ctrl.Result{}, nil
 }

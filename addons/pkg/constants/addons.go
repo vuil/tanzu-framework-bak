@@ -37,4 +37,10 @@ const (
 
 	// TKGDataValueFormatString is required annotations for YTT data value file
 	TKGDataValueFormatString = "#@data/values\n#@overlay/match-child-defaults missing_ok=True\n---\n"
+
+	// TKGCorePackageRepositoryComponentName is the name of component that includes the package and repository images
+	TKGCorePackageRepositoryComponentName = "tkg-core-packages"
+
+	// TKGCorePackageRepositoryImageName is the name of core package repository image
+	TKGCorePackageRepositoryImageName = "tanzuCorePackageRepositoryImage"
 )

@@ -7,9 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	packagev1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
-
-	"github.com/pkg/errors"
+	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -255,7 +253,7 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageDelete(
 	clusterClient client.Client,
 	addonSecret *corev1.Secret) error {
 
-	ipkg := &packagev1alpha1.InstalledPackage{
+	ipkg := &ipkgv1alpha1.InstalledPackage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
 			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
@@ -326,49 +324,11 @@ func (r *AddonReconciler) reconcileAddonAppNormal(
 
 		app.Spec.SyncPeriod = &metav1.Duration{Duration: r.Config.AppSyncPeriod}
 
-		/*example addon section in BOM:
-
-		  app-controller:
-		    category: addons-management
-		    clusterTypes:
-		    - management
-		    - workload
-		    templatesImagePath: tanzu_core/addons/kapp-controller-templates (legacy)
-		    templatesImageTag: v1.3.0 (legacy)
-		    addonTemplatesImage:
-		    - componentRef: tanzu_core_addons
-		      imageRefs:
-		      - kappControllerTemplatesImage
-		    addonContainerImages:
-		    - componentRef: kapp-controller
-		      imageRefs:
-		      - kappControllerImage
-		*/
-		var templateImagePath, templateImageTag string
-		if len(addonConfig.AddonTemplatesImage) < 1 || len(addonConfig.AddonTemplatesImage[0].ImageRefs) < 1 {
-			// if AddonTemplatesImage and AddonTemplatesImage are not present, use the older BOM format
-			templateImagePath = addonConfig.TemplatesImagePath
-			templateImageTag = addonConfig.TemplatesImageTag
-		} else {
-			templateImageComponentName := addonConfig.AddonTemplatesImage[0].ComponentRef
-			templateImageName := addonConfig.AddonTemplatesImage[0].ImageRefs[0]
-
-			templateImage, err := bom.GetImageInfo(templateImageComponentName, "", templateImageName)
-			if err != nil {
-				log.Error(err, "Error getting template image info from BOM", constants.ComponentNameLogKey, templateImageComponentName, constants.ImageNameLogKey, templateImageName)
-				return err
-			}
-			templateImagePath = templateImage.ImagePath
-			templateImageTag = templateImage.Tag
-		}
-
-		if templateImagePath == "" || templateImageTag == "" {
-			err := errors.New(fmt.Sprintf("unable to get template image for %s", addonName))
-			log.Error(err, "Error getting valid template image info from BOM")
+		templateImageURL, err := util.GetTemplateImageUrl(addonConfig, imageRepository, bom)
+		if err != nil {
+			log.Error(err, "Error getting addon template image")
 			return err
 		}
-
-		templateImageURL := fmt.Sprintf("%s/%s:%s", imageRepository, templateImagePath, templateImageTag)
 		log.Info("Addon template image found", constants.ImageURLLogKey, templateImageURL)
 
 		app.Spec.Fetch = []kappctrl.AppFetch{
@@ -418,7 +378,7 @@ func (r *AddonReconciler) reconcileAddonAppNormal(
 
 	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, app, appMutateFn)
 	if err != nil {
-		log.Error(err, "Error creating or patching addon")
+		log.Error(err, "Error creating or patching addon App")
 		return err
 	}
 
@@ -431,12 +391,9 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 	ctx context.Context,
 	log logr.Logger,
 	remoteApp bool,
-	remoteCluster *clusterapiv1alpha3.Cluster,
 	clusterClient client.Client,
 	addonSecret *corev1.Secret,
-	addonConfig *bomtypes.Addon,
-	imageRepository string,
-	bom *bomtypes.Bom) error {
+	addonConfig *bomtypes.Addon) error {
 
 	addonName := util.GetAddonNameFromAddonSecret(addonSecret)
 
@@ -445,41 +402,42 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 	 * workload clusters kubeconfig details need to be added for remote App so that kapp-controller on management
 	 * cluster can reconcile and push the addon/app to the workload cluster
 	 */
+	// TODO: Switch to remote InstalledPackage when this feature is available in packaging api
 	if remoteApp {
-		// TODO: special kapp-controller on wlc case here
-	}
 
-	ipkg := &packagev1alpha1.InstalledPackage{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
-		},
-	}
-
-	appMutateFn := func() error {
-		if ipkg.ObjectMeta.Annotations == nil {
-			ipkg.ObjectMeta.Annotations = make(map[string]string)
+	} else {
+		ipkg := &ipkgv1alpha1.InstalledPackage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
+				Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+			},
 		}
 
-		ipkg.ObjectMeta.Annotations[addontypes.AddonTypeAnnotation] = fmt.Sprintf("%s/%s", addonConfig.Category, addonName)
-		ipkg.ObjectMeta.Annotations[addontypes.AddonNameAnnotation] = addonSecret.Name
-		ipkg.ObjectMeta.Annotations[addontypes.AddonNamespaceAnnotation] = addonSecret.Namespace
+		ipkgMutateFn := func() error {
+			if ipkg.ObjectMeta.Annotations == nil {
+				ipkg.ObjectMeta.Annotations = make(map[string]string)
+			}
 
-		ipkg.Spec.ServiceAccountName = addonconstants.TKGAddonsAppServiceAccount
+			ipkg.ObjectMeta.Annotations[addontypes.AddonTypeAnnotation] = fmt.Sprintf("%s/%s", addonConfig.Category, addonName)
+			ipkg.ObjectMeta.Annotations[addontypes.AddonNameAnnotation] = addonSecret.Name
+			ipkg.ObjectMeta.Annotations[addontypes.AddonNamespaceAnnotation] = addonSecret.Namespace
 
-		ipkg.Spec.PkgRef = &packagev1alpha1.PackageRef{PublicName: addonConfig.PackageName, Version: addonConfig.PackageVersion}
-		ipkg.Spec.Values = []packagev1alpha1.InstalledPackageValues{{&packagev1alpha1.InstalledPackageValuesSecretRef{Name: "", Key: ""}}}
+			ipkg.Spec.ServiceAccountName = addonconstants.TKGAddonsAppServiceAccount
 
-		return nil
+			ipkg.Spec.PkgRef = &ipkgv1alpha1.PackageRef{PublicName: addonConfig.PackageName, Version: addonConfig.PackageVersion}
+			ipkg.Spec.Values = []ipkgv1alpha1.InstalledPackageValues{{&ipkgv1alpha1.InstalledPackageValuesSecretRef{Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret)}}}
+
+			return nil
+		}
+
+		result, err := controllerutil.CreateOrPatch(ctx, clusterClient, ipkg, ipkgMutateFn)
+		if err != nil {
+			log.Error(err, "Error creating or patching addon InstalledPackage")
+			return err
+		}
+
+		r.logOperationResult(log, "InstalledPackage", result)
 	}
-
-	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, ipkg, appMutateFn)
-	if err != nil {
-		log.Error(err, "Error creating or patching addon")
-		return err
-	}
-
-	r.logOperationResult(log, "app", result)
 
 	return nil
 }
@@ -561,9 +519,9 @@ func (r *AddonReconciler) reconcileAddonNormal(
 		return err
 	}
 
-	// TODO: special case for kapp-controller on workload cluster
-	if addonConfig.PackageName != "" && addonConfig.PackageVersion != "" {
-		if err := r.reconcileAddonInstalledPackageNormal(ctx, logWithContext, remoteApp, remoteCluster, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
+	if addonConfig.PackageName != "" && addonConfig.PackageVersion != "" && !util.IsRemoteApp(addonSecret) {
+		// TODO: Switch to remote InstalledPackage when this feature is available in packaging api
+		if err := r.reconcileAddonInstalledPackageNormal(ctx, logWithContext, remoteApp, clusterClient, addonSecret, addonConfig); err != nil {
 			log.Error(err, "Error reconciling addon InstalledPackage")
 			return err
 		}
