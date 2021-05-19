@@ -8,10 +8,6 @@ import (
 	"errors"
 	"fmt"
 	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
-	pkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apiserver/apis/packages/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/cluster-api/util/secret"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"strconv"
 
 	"gopkg.in/yaml.v2"
@@ -211,8 +207,8 @@ func GetApp(ctx context.Context,
 	return app, nil
 }
 
-// GetInstalledPackage gets the InstalledPackage CR from cluster
-func GetInstalledPackage(ctx context.Context,
+// GetInstalledPackageFromAddonSecret gets the InstalledPackage CR from cluster
+func GetInstalledPackageFromAddonSecret(ctx context.Context,
 	remoteClient client.Client,
 	addonSecret *corev1.Secret) (*ipkgv1alpha1.InstalledPackage, error) {
 
@@ -271,7 +267,7 @@ func IsInstalledPackagePresent(ctx context.Context,
 	localClient client.Client,
 	addonSecret *corev1.Secret) (bool, error) {
 
-	_, err := GetInstalledPackage(ctx, localClient, addonSecret)
+	_, err := GetInstalledPackageFromAddonSecret(ctx, localClient, addonSecret)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return false, err
