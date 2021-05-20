@@ -7,8 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
-
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -20,6 +18,8 @@ import (
 
 	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
 
+	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
+	versions "github.com/vmware-tanzu/carvel-vendir/pkg/vendir/versions/v1alpha1"
 	"github.com/vmware-tanzu/tanzu-framework/addons/constants"
 	addonconstants "github.com/vmware-tanzu/tanzu-framework/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu/tanzu-framework/addons/pkg/types"
@@ -331,12 +331,24 @@ func (r *AddonReconciler) reconcileAddonAppNormal(
 		}
 		log.Info("Addon template image found", constants.ImageURLLogKey, templateImageURL)
 
-		app.Spec.Fetch = []kappctrl.AppFetch{
-			{
-				Image: &kappctrl.AppFetchImage{
-					URL: templateImageURL,
+		// If the imageUrl is obtained from packageName and packageVersion
+		// Use ImgpkgBundle in App CR
+		if addonConfig.PackageName != "" && addonConfig.PackageVersion != "" {
+			app.Spec.Fetch = []kappctrl.AppFetch{
+				{
+					ImgpkgBundle: &kappctrl.AppFetchImgpkgBundle{
+						Image: templateImageURL,
+					},
 				},
-			},
+			}
+		} else {
+			app.Spec.Fetch = []kappctrl.AppFetch{
+				{
+					Image: &kappctrl.AppFetchImage{
+						URL: templateImageURL,
+					},
+				},
+			}
 		}
 
 		app.Spec.Template = []kappctrl.AppTemplate{
@@ -402,9 +414,8 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 	 * workload clusters kubeconfig details need to be added for remote App so that kapp-controller on management
 	 * cluster can reconcile and push the addon/app to the workload cluster
 	 */
-	// TODO: Switch to remote InstalledPackage when this feature is available in packaging api
 	if remoteApp {
-
+		// TODO: Switch to remote InstalledPackage when this feature is available in packaging api
 	} else {
 		ipkg := &ipkgv1alpha1.InstalledPackage{
 			ObjectMeta: metav1.ObjectMeta{
@@ -422,10 +433,16 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 			ipkg.ObjectMeta.Annotations[addontypes.AddonNameAnnotation] = addonSecret.Name
 			ipkg.ObjectMeta.Annotations[addontypes.AddonNamespaceAnnotation] = addonSecret.Namespace
 
-			ipkg.Spec.ServiceAccountName = addonconstants.TKGAddonsAppServiceAccount
-
-			ipkg.Spec.PkgRef = &ipkgv1alpha1.PackageRef{PublicName: addonConfig.PackageName, Version: addonConfig.PackageVersion}
-			ipkg.Spec.Values = []ipkgv1alpha1.InstalledPackageValues{{&ipkgv1alpha1.InstalledPackageValuesSecretRef{Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret)}}}
+			ipkg.Spec = ipkgv1alpha1.InstalledPackageSpec{
+				ServiceAccountName: addonconstants.TKGAddonsAppServiceAccount,
+				PackageVersionRef: &ipkgv1alpha1.PackageVersionRef{
+					PackageName: addonConfig.PackageName,
+					VersionSelection: &versions.VersionSelectionSemver{
+						Constraints: addonConfig.PackageVersion,
+					},
+				},
+				Values: []ipkgv1alpha1.InstalledPackageValues{{SecretRef: &ipkgv1alpha1.InstalledPackageValuesSecretRef{Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret)}}},
+			}
 
 			return nil
 		}

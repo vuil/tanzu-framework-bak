@@ -6,7 +6,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -36,6 +35,9 @@ import (
 	addonpredicates "github.com/vmware-tanzu/tanzu-framework/addons/predicates"
 	runtanzuv1alpha1 "github.com/vmware-tanzu/tanzu-framework/apis/run/v1alpha1"
 	bomtypes "github.com/vmware-tanzu/tanzu-framework/pkg/v1/tkr/pkg/types"
+
+	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
+	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
 )
 
 const (
@@ -300,12 +302,22 @@ func (r *AddonReconciler) reconcileCorePackageRepository(
 	}
 
 	// build the core PackageRepository CR
-	corePackageRepository := &ipkgv1alpha1.PackageRepository{}
+	corePackageRepository := &ipkgv1alpha1.PackageRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.TKGCorePackageRepositoryName,
+		},
+	}
 
 	// apply the core PackageRepository CR
 	addonDataValuesSecretMutateFn := func() error {
-		corePackageRepository.ObjectMeta.Name = constants.TKGCorePackageRepositoryName
-		corePackageRepository.Spec.Fetch.ImgpkgBundle.Image = fmt.Sprintf("%s/%s:%s", imageRepository, repositoryImage.ImagePath, repositoryImage.Tag)
+		corePackageRepository.Spec = ipkgv1alpha1.PackageRepositorySpec{
+			Fetch: &ipkgv1alpha1.PackageRepositoryFetch{
+				ImgpkgBundle: &kappctrl.AppFetchImgpkgBundle{
+					Image: fmt.Sprintf("%s/%s:%s", imageRepository, repositoryImage.ImagePath, repositoryImage.Tag),
+				},
+			},
+		}
+
 		return nil
 	}
 

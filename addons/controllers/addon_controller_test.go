@@ -20,6 +20,8 @@ import (
 
 	addonconstants "github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
+
+	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
 )
 
 const (
@@ -67,8 +69,9 @@ var _ = Describe("Addon Reconciler", func() {
 			Name:      "antrea",
 		}
 		antreaApp := &kappctrl.App{}
-		Expect(k8sClient.Get(ctx, appKey, antreaApp)).To(Succeed())
-		Expect(k8sClient.Delete(ctx, antreaApp)).To(Succeed())
+		// some testcases don't create App CR
+		k8sClient.Get(ctx, appKey, antreaApp)
+		k8sClient.Delete(ctx, antreaApp)
 
 		By("Deleting kubeconfig for cluster")
 		key := client.ObjectKey{
@@ -262,6 +265,128 @@ var _ = Describe("Addon Reconciler", func() {
 								SecretRef: &kappctrl.AppFetchInlineSourceRef{
 									LocalObjectReference: v1.LocalObjectReference{
 										Name: "antrea-data-values",
+									},
+								},
+							},
+						},
+					},
+				}
+
+				Expect(*app.Spec.Template[0].Ytt).Should(Equal(appTmplYtt))
+				return true
+			}, waitTimeout, pollingInterval).Should(BeTrue())
+
+		})
+
+	})
+
+	Context("reconcileAddonNormal for a tkr 1.20.6", func() {
+
+		BeforeEach(func() {
+			clusterName = "test-cluster-3"
+			clusterResourceFilePath = "testdata/test-cluster-3.yaml"
+		})
+
+		It("Addon controller reconciliation check", func() {
+
+			Eventually(func() bool {
+				key := client.ObjectKey{
+					Namespace: addonconstants.TKGAddonsAppNamespace,
+					Name:      "antrea-data-values",
+				}
+				secret := &v1.Secret{}
+				err := k8sClient.Get(ctx, key, secret)
+				if err != nil {
+					return false
+				}
+				Expect(secret.Type).Should(Equal(v1.SecretTypeOpaque))
+				secretData := string(secret.Data["values.yaml"])
+				Expect(strings.Contains(secretData, "serviceCidr: 100.64.0.0/13")).Should(BeTrue())
+				return true
+			}, waitTimeout, pollingInterval).Should(BeTrue())
+
+			Eventually(func() bool {
+				key := client.ObjectKey{
+					Name: addonconstants.TKGCorePackageRepositoryName,
+				}
+				pkgr := &ipkgv1alpha1.PackageRepository{}
+				Expect(k8sClient.Get(ctx, key, pkgr)).To(Succeed())
+
+				pkgrSpec := ipkgv1alpha1.PackageRepositorySpec{
+					Fetch: &ipkgv1alpha1.PackageRepositoryFetch{
+						ImgpkgBundle: &kappctrl.AppFetchImgpkgBundle{
+							Image: "projects.registry.vmware.com/tkg/tanzu_core_repo/core-package-repository:v1.4.0+vmware.0",
+						},
+					},
+				}
+
+				Expect(pkgr.Spec).Should(Equal(pkgrSpec))
+				return true
+			}, waitTimeout, pollingInterval).Should(BeTrue())
+
+			Eventually(func() bool {
+				key := client.ObjectKey{
+					Namespace: addonconstants.TKGAddonsAppNamespace,
+					Name:      "antrea",
+				}
+				ipkg := &ipkgv1alpha1.InstalledPackage{}
+				Expect(k8sClient.Get(ctx, key, ipkg)).To(Succeed())
+
+				Expect(ipkg.Annotations[addontypes.AddonTypeAnnotation]).Should(Equal("cni/antrea"))
+				Expect(ipkg.Annotations[addontypes.AddonNameAnnotation]).Should(Equal("test-cluster-3-antrea"))
+				// TODO why is this needed
+				Expect(ipkg.Annotations[addontypes.AddonNamespaceAnnotation]).Should(Equal("default"))
+
+				Expect(ipkg.Spec.ServiceAccountName).Should(Equal(addonconstants.TKGAddonsAppServiceAccount))
+
+				Expect(ipkg.Spec.PackageVersionRef).ShouldNot(BeNil())
+				Expect(ipkg.Spec.PackageVersionRef.PackageName).Should(Equal("antrea.vmware.com"))
+				Expect(ipkg.Spec.PackageVersionRef.VersionSelection.Constraints).Should(Equal("1.4.0"))
+
+				ipkgValues := []ipkgv1alpha1.InstalledPackageValues{
+					{
+						SecretRef: &ipkgv1alpha1.InstalledPackageValuesSecretRef{
+							Name: "antrea-data-values",
+						},
+					},
+				}
+
+				Expect(ipkg.Spec.Values).Should(Equal(ipkgValues))
+				return true
+			}, waitTimeout, pollingInterval).Should(BeTrue())
+
+			Eventually(func() bool {
+				key := client.ObjectKey{
+					Namespace: "default",
+					Name:      "test-cluster-3-kapp-controller",
+				}
+				app := &kappctrl.App{}
+				Expect(k8sClient.Get(ctx, key, app)).To(Succeed())
+
+				Expect(app.Annotations[addontypes.AddonTypeAnnotation]).Should(Equal("addons-management/kapp-controller"))
+				Expect(app.Annotations[addontypes.AddonNameAnnotation]).Should(Equal("test-cluster-3-kapp-controller"))
+				// TODO why is this needed
+				Expect(app.Annotations[addontypes.AddonNamespaceAnnotation]).Should(Equal("default"))
+
+				appCluster := &kappctrl.AppCluster{
+					KubeconfigSecretRef: &kappctrl.AppClusterKubeconfigSecretRef{
+						Name: "test-cluster-3-kubeconfig",
+						Key:  "value",
+					},
+				}
+				Expect(app.Spec.Cluster).Should(Equal(appCluster))
+
+				Expect(app.Spec.Fetch[0].ImgpkgBundle.Image).Should(Equal("projects.registry.vmware.com/tkg/tanzu_core/addons/kapp-controller-package:v1.4.0+vmware.1"))
+
+				appTmplYtt := kappctrl.AppTemplateYtt{
+					IgnoreUnknownComments: true,
+					Strict:                false,
+					Inline: &kappctrl.AppFetchInline{
+						PathsFrom: []kappctrl.AppFetchInlineSource{
+							{
+								SecretRef: &kappctrl.AppFetchInlineSourceRef{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "test-cluster-3-kapp-controller-data-values",
 									},
 								},
 							},
