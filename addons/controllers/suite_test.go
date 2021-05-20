@@ -70,6 +70,7 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(externalCRDPaths).ToNot(BeEmpty())
 	testEnv.CRDDirectoryPaths = externalCRDPaths
 	testEnv.CRDDirectoryPaths = append(testEnv.CRDDirectoryPaths, filepath.Join("..", "..", "config", "crd", "bases"))
+	testEnv.CRDDirectoryPaths = append(testEnv.CRDDirectoryPaths, filepath.Join(".", "testdata", "crd"))
 	testEnv.ErrorIfCRDPathMissing = true
 
 	cfg, err = testEnv.Start()
@@ -143,7 +144,6 @@ func getExternalCRDPaths() ([]string, error) {
 	externalDeps := map[string][]string{
 		"sigs.k8s.io/cluster-api": {"config/crd/bases",
 			"controlplane/kubeadm/config/crd/bases"},
-		"github.com/vmware-tanzu/carvel-kapp-controller": {"config/crds.yml"},
 	}
 
 	var crdPaths []string
