@@ -1,0 +1,20 @@
+apiVersion: vendir.k14s.io/v1alpha1
+kind: Config
+directories:
+- path: ytt/vendir/vsphere_cpi/_ytt_lib
+  contents:
+  - path: .
+    git:
+      url: git@github.com:shyaamsn/tce.git
+      ref: update_core_packages
+    includePaths:
+    - addons/packages/vsphere-cpi/bundle/config/**/*
+- path: ytt/vendir/cni/_ytt_lib
+  contents:
+  - path: .
+    git:
+      url: git@github.com:shyaamsn/tce.git
+      ref: update_core_packages
+    includePaths:
+    - addons/packages/antrea/bundle/config/**/*
+    - addons/packages/calico/bundle/config/**/*

@@ -1,15 +1,8 @@
 #@data/values
-#@overlay/match-child-defaults missing_ok=True
-
 ---
+
+namespace: kube-system
 infraProvider: vsphere
-imageInfo:
-  imageRepository: docker.io
-  imagePullPolicy: IfNotPresent
-  images:
-    antreaImage:
-      imagePath: antrea/antrea-ubuntu
-      tag: v0.13.3
 antrea:
   config:
     serviceCIDR: 10.96.0.0/12

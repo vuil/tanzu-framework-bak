@@ -1,0 +1,19 @@
+apiVersion: vendir.k14s.io/v1alpha1
+directories:
+- contents:
+  - git:
+      commitTitle: Sort vsphere-cpi and vsphere-csi upstream files
+      sha: 3f067d1cfdc2a11f3b374799415c7e7478a954e0
+      tags:
+      - v0.5.0-dev.1-73-g3f067d1
+    path: .
+  path: ytt/vendir/vsphere_cpi/_ytt_lib
+- contents:
+  - git:
+      commitTitle: Sort vsphere-cpi and vsphere-csi upstream files
+      sha: 3f067d1cfdc2a11f3b374799415c7e7478a954e0
+      tags:
+      - v0.5.0-dev.1-73-g3f067d1
+    path: .
+  path: ytt/vendir/cni/_ytt_lib
+kind: LockConfig

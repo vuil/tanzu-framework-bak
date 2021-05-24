@@ -456,7 +456,7 @@ spec:
       priorityClassName: system-node-critical
       initContainers:
       - name: upgrade-ipam
-        image: ${_TKG_CALICO_CNI_IMAGE}
+        image: docker.io/calico/cni:v3.11.3
         command:
         - /opt/cni/bin/calico-ipam
         - -upgrade
@@ -478,7 +478,7 @@ spec:
         securityContext:
           privileged: true
       - name: install-cni
-        image: ${_TKG_CALICO_CNI_IMAGE}
+        image: docker.io/calico/cni:v3.11.3
         command:
         - /install-cni.sh
         env:
@@ -508,7 +508,7 @@ spec:
         securityContext:
           privileged: true
       - name: flexvol-driver
-        image: ${_TKG_CALICO_POD_DAEMON_IMAGE}
+        image: docker.io/calico/pod2daemon-flexvol:v3.11.3
         volumeMounts:
         - name: flexvol-driver-host
           mountPath: /host/driver
@@ -516,7 +516,7 @@ spec:
           privileged: true
       containers:
       - name: calico-node
-        image: ${_TKG_CALICO_NODE_IMAGE}
+        image: docker.io/calico/node:v3.11.3
         env:
         - name: DATASTORE_TYPE
           value: kubernetes
@@ -543,7 +543,7 @@ spec:
               name: calico-config
               key: veth_mtu
         - name: CALICO_IPV4POOL_CIDR
-          value: ${CLUSTER_CIDR}
+          value: "192.168.0.0/16"
         - name: CALICO_DISABLE_FILE_LOGGING
           value: "true"
         - name: FELIX_DEFAULTENDPOINTTOHOSTACTION
@@ -662,7 +662,7 @@ spec:
       priorityClassName: system-cluster-critical
       containers:
       - name: calico-kube-controllers
-        image: ${_TKG_CALICO_KUBECONTROLLER_IMAGE}
+        image: docker.io/calico/kube-controllers:v3.11.3
         env:
         - name: ENABLED_CONTROLLERS
           value: node
