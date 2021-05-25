@@ -2,12 +2,20 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Sort vsphere-cpi and vsphere-csi upstream files
-      sha: 3f067d1cfdc2a11f3b374799415c7e7478a954e0
+      commitTitle: 'Merge pull request #642 from vmware-tanzu-private/lyuming/tkg-ui-e2e...'
+      sha: 863617ad6436cf6ccec6215a92322ac20d94d63a
       tags:
-      - v0.5.0-dev.1-73-g3f067d1
+      - v1.4.0-pre-alpha-1-121-g863617a
     path: .
   path: ytt/vendir/vsphere_cpi/_ytt_lib
+- contents:
+  - git:
+      commitTitle: 'Merge pull request #642 from vmware-tanzu-private/lyuming/tkg-ui-e2e...'
+      sha: 863617ad6436cf6ccec6215a92322ac20d94d63a
+      tags:
+      - v1.4.0-pre-alpha-1-121-g863617a
+    path: .
+  path: ytt/vendir/cni/_ytt_lib
 - contents:
   - git:
       commitTitle: Sort vsphere-cpi and vsphere-csi upstream files
@@ -15,5 +23,5 @@ directories:
       tags:
       - v0.5.0-dev.1-73-g3f067d1
     path: .
-  path: ytt/vendir/cni/_ytt_lib
+  path: ytt/vendir/kapp-controller/_ytt_lib
 kind: LockConfig

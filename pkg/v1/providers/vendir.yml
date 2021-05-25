@@ -18,3 +18,11 @@ directories:
     includePaths:
     - addons/packages/antrea/bundle/config/**/*
     - addons/packages/calico/bundle/config/**/*
+- path: ytt/vendir/kapp-controller/_ytt_lib
+  contents:
+  - path: .
+    git:
+      url: git@github.com:shyaamsn/tce.git
+      ref: update_core_packages
+    includePaths:
+    - addons/packages/kapp-controller/bundle/config/**/*
