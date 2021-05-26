@@ -147,7 +147,7 @@ func GetTemplateImageUrl(addonConfig *bomtypes.Addon, imageRepository string, bo
 	      - kappControllerImage
 	*/
 	var templateImagePath, templateImageTag string
-	if addonConfig.PackageName != "" && addonConfig.PackageVersion != "" {
+	if addonConfig.PackageName != "" {
 		addonPackageImage, err := bom.GetImageInfo(constants.TKGCorePackageRepositoryComponentName, "", addonConfig.PackageName)
 		if err != nil {
 			return "", err

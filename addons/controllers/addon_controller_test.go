@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	waitTimeout     = time.Second * 60
-	pollingInterval = time.Second * 1
+	waitTimeout     = time.Second * 90
+	pollingInterval = time.Second * 2
 )
 
 var _ = Describe("Addon Reconciler", func() {
@@ -341,7 +341,7 @@ var _ = Describe("Addon Reconciler", func() {
 
 				Expect(ipkg.Spec.PackageVersionRef).ShouldNot(BeNil())
 				Expect(ipkg.Spec.PackageVersionRef.PackageName).Should(Equal("antrea.vmware.com"))
-				Expect(ipkg.Spec.PackageVersionRef.VersionSelection.Constraints).Should(Equal("1.4.0"))
+				Expect(ipkg.Spec.PackageVersionRef.VersionSelection.Constraints).Should(Equal("v1.4.0+vmware.1"))
 
 				ipkgValues := []ipkgv1alpha1.InstalledPackageValues{
 					{

@@ -331,9 +331,9 @@ func (r *AddonReconciler) reconcileAddonAppNormal(
 		}
 		log.Info("Addon template image found", constants.ImageURLLogKey, templateImageURL)
 
-		// If the imageUrl is obtained from packageName and packageVersion
+		// If the imageUrl is obtained from packageName
 		// Use ImgpkgBundle in App CR
-		if addonConfig.PackageName != "" && addonConfig.PackageVersion != "" {
+		if addonConfig.PackageName != "" {
 			app.Spec.Fetch = []kappctrl.AppFetch{
 				{
 					ImgpkgBundle: &kappctrl.AppFetchImgpkgBundle{
@@ -405,7 +405,8 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 	remoteApp bool,
 	clusterClient client.Client,
 	addonSecret *corev1.Secret,
-	addonConfig *bomtypes.Addon) error {
+	addonConfig *bomtypes.Addon,
+	bom *bomtypes.Bom) error {
 
 	addonName := util.GetAddonNameFromAddonSecret(addonSecret)
 
@@ -424,6 +425,12 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 			},
 		}
 
+		addonPackageImage, err := bom.GetImageInfo(constants.TKGCorePackageRepositoryComponentName, "", addonConfig.PackageName)
+		if err != nil {
+			log.Error(err, "Error getting package image")
+			return err
+		}
+
 		ipkgMutateFn := func() error {
 			if ipkg.ObjectMeta.Annotations == nil {
 				ipkg.ObjectMeta.Annotations = make(map[string]string)
@@ -438,7 +445,7 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 				PackageVersionRef: &ipkgv1alpha1.PackageVersionRef{
 					PackageName: addonConfig.PackageName,
 					VersionSelection: &versions.VersionSelectionSemver{
-						Constraints: addonConfig.PackageVersion,
+						Constraints: addonPackageImage.Tag,
 					},
 				},
 				Values: []ipkgv1alpha1.InstalledPackageValues{{SecretRef: &ipkgv1alpha1.InstalledPackageValuesSecretRef{Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret)}}},
@@ -536,9 +543,9 @@ func (r *AddonReconciler) reconcileAddonNormal(
 		return err
 	}
 
-	if addonConfig.PackageName != "" && addonConfig.PackageVersion != "" && !util.IsRemoteApp(addonSecret) {
+	if addonConfig.PackageName != "" && !util.IsRemoteApp(addonSecret) {
 		// TODO: Switch to remote InstalledPackage when this feature is available in packaging api
-		if err := r.reconcileAddonInstalledPackageNormal(ctx, logWithContext, remoteApp, clusterClient, addonSecret, addonConfig); err != nil {
+		if err := r.reconcileAddonInstalledPackageNormal(ctx, logWithContext, remoteApp, clusterClient, addonSecret, addonConfig, bom); err != nil {
 			log.Error(err, "Error reconciling addon InstalledPackage")
 			return err
 		}

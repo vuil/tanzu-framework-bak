@@ -213,7 +213,6 @@ data:
         - management
         - workload
         packageName: antrea.vmware.com
-        packageVersion: 1.4.0
       calico:
         category: cni
         clusterTypes:
@@ -221,49 +220,42 @@ data:
         - workload
         addonTemplatesImage:
         packageName: calico.vmware.com
-        packageVersion: 1.4.0
       kapp-controller:
         category: addons-management
         clusterTypes:
         - management
         - workload
         packageName: kapp-controller.vmware.com
-        packageVersion: 1.4.0
       metrics-server:
         category: metrics
         clusterTypes:
         - management
         - workload
         packageName: metrics-server.vmware.com
-        packageVersion: 1.4.0
       pinniped:
         category: authentication
         clusterTypes:
         - management
         - workload
         packageName: pinniped.vmware.com
-        packageVersion: 1.4.0
       tanzu-addons-manager:
         category: addons-management
         clusterTypes:
         - management
         - workload
         packageName: tanzu-addons-manager.vmware.com
-        packageVersion: 1.4.0
       vsphere-cpi:
         category: cpi
         clusterTypes:
         - management
         - workload
         packageName: vsphere-cpi.vmware.com
-        packageVersion: 1.4.0
       vsphere-csi:
         category: csi
         clusterTypes:
         - management
         - workload
         packageName: vsphere-csi.vmware.com
-        packageVersion: 1.4.0
 ---
 apiVersion: v1
 kind: Secret
