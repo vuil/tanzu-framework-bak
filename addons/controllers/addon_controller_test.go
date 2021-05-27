@@ -342,6 +342,7 @@ var _ = Describe("Addon Reconciler", func() {
 				Expect(ipkg.Spec.PackageVersionRef).ShouldNot(BeNil())
 				Expect(ipkg.Spec.PackageVersionRef.PackageName).Should(Equal("antrea.vmware.com"))
 				Expect(ipkg.Spec.PackageVersionRef.VersionSelection.Constraints).Should(Equal("v1.4.0+vmware.1"))
+				Expect(ipkg.Spec.PackageVersionRef.VersionSelection.Prereleases).ShouldNot(Equal(nil))
 
 				ipkgValues := []ipkgv1alpha1.InstalledPackageValues{
 					{

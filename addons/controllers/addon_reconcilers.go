@@ -446,6 +446,7 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 					PackageName: addonConfig.PackageName,
 					VersionSelection: &versions.VersionSelectionSemver{
 						Constraints: addonPackageImage.Tag,
+						Prereleases: &versions.VersionSelectionSemverPrereleases{},
 					},
 				},
 				Values: []ipkgv1alpha1.InstalledPackageValues{{SecretRef: &ipkgv1alpha1.InstalledPackageValuesSecretRef{Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret)}}},
