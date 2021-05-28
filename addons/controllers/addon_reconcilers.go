@@ -195,8 +195,14 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretNormal(
 
 	addonDataValuesSecretMutateFn := func() error {
 		addonDataValuesSecret.Type = corev1.SecretTypeOpaque
-		addonDataValuesSecret.Data = addonSecret.Data
+		if addonDataValuesSecret.Data == nil {
+			addonDataValuesSecret.Data = map[string][]byte{}
+		}
+		for k, v := range addonSecret.Data {
+			addonDataValuesSecret.Data[k] = v
+		}
 		if len(addonConfig.AddonContainerImages) > 0 {
+
 			imageInfoBytes, err := util.GetImageInfo(addonConfig, imageRepository, bom)
 			if err != nil {
 				log.Error(err, "Error retrieving addon image info")
