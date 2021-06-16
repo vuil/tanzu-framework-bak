@@ -5,16 +5,16 @@ directories:
   contents:
   - path: .
     git:
-      url: git@github.com:shyaamsn/tce.git
-      ref: update_core_packages
+      url: git@github.com:vmware-tanzu/tce.git
+      ref: a48cdaa6d0390f076a3c3abbed64a1615960980a
     includePaths:
     - addons/packages/vsphere-cpi/bundle/config/**/*
 - path: ytt/vendir/cni/_ytt_lib
   contents:
   - path: .
     git:
-      url: git@github.com:shyaamsn/tce.git
-      ref: update_core_packages
+      url: git@github.com:vmware-tanzu/tce.git
+      ref: e7843850896f3c45333cc757309758534330b17e
     includePaths:
     - addons/packages/antrea/bundle/config/**/*
     - addons/packages/calico/bundle/config/**/*
@@ -23,6 +23,6 @@ directories:
   - path: .
     git:
       url: git@github.com:shyaamsn/tce.git
-      ref: update_core_packages
+      ref: update_kapp_controller_rc1
     includePaths:
     - addons/packages/kapp-controller/bundle/config/**/*
