@@ -140,7 +140,11 @@ func (p *pkgClient) deletePackageInstall(o *tkgpackagedatamodel.PackageOptions) 
 	}
 
 	if err := p.kappClient.GetClient().Delete(context.Background(), obj); err != nil {
+<<<<<<< HEAD
 		return errors.Wrap(err, "failed to delete PackageInstall resource")
+=======
+		return errors.Wrap(err, "failed to delete PackageInstall CR resource")
+>>>>>>> d0bc1df8... addons manager adopt kapp-controller 1.20.0.rc.1 (#834)
 	}
 
 	return nil

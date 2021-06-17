@@ -7,16 +7,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
 	"strconv"
+	"strings"
 
+	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
+	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterapiv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
 
 	"github.com/vmware-tanzu/tanzu-framework/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu/tanzu-framework/addons/pkg/types"
@@ -123,8 +123,14 @@ func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository string, bom *bomt
 		return nil, err
 	}
 
-	outputBytes := append([]byte(constants.TKGDataValueFormatString), ImageInfoBytes...)
-	return outputBytes, nil
+	return ImageInfoBytes, nil
+}
+
+// TrimAddonDataValueAnnotations removes the ytt annotation of addon data values if the annotation ("#@data/values\n#@overlay/match-child-defaults missing_ok=True\n---\n") exists
+func TrimAddonDataValueAnnotations(dataValues []byte) []byte {
+	trimmedDataValues := strings.ReplaceAll(string(dataValues), constants.TKGDataValueFormatString, "")
+	trimmedDataValues = strings.ReplaceAll(trimmedDataValues, constants.TKGDataValueFormatStringShort, "")
+	return []byte(trimmedDataValues)
 }
 
 // GetTemplateImageUrl gets the image template image url of an addon
@@ -207,22 +213,22 @@ func GetApp(ctx context.Context,
 	return app, nil
 }
 
-// GetInstalledPackageFromAddonSecret gets the InstalledPackage CR from cluster
-func GetInstalledPackageFromAddonSecret(ctx context.Context,
+// GetPackageInstallFromAddonSecret gets the PackageInstall CR from cluster
+func GetPackageInstallFromAddonSecret(ctx context.Context,
 	remoteClient client.Client,
-	addonSecret *corev1.Secret) (*ipkgv1alpha1.InstalledPackage, error) {
+	addonSecret *corev1.Secret) (*pkgiv1alpha1.PackageInstall, error) {
 
-	ipkg := &ipkgv1alpha1.InstalledPackage{}
-	ipkgObjectKey := client.ObjectKey{
+	pkgi := &pkgiv1alpha1.PackageInstall{}
+	pkgiObjectKey := client.ObjectKey{
 		Name:      GenerateAppNameFromAddonSecret(addonSecret),
 		Namespace: GenerateAppNamespaceFromAddonSecret(addonSecret),
 	}
 
-	if err := remoteClient.Get(ctx, ipkgObjectKey, ipkg); err != nil {
+	if err := remoteClient.Get(ctx, pkgiObjectKey, pkgi); err != nil {
 		return nil, err
 	}
 
-	return ipkg, nil
+	return pkgi, nil
 }
 
 // IsAppPresent returns true if app is present on the cluster
@@ -262,12 +268,12 @@ func IsAddonPaused(addonSecret *corev1.Secret) bool {
 	return ok
 }
 
-// IsInstalledPackagePresent returns true if InstalledPackage is present on the cluster
-func IsInstalledPackagePresent(ctx context.Context,
+// IsPackageInstallPresent returns true if PackageInstall is present on the cluster
+func IsPackageInstallPresent(ctx context.Context,
 	localClient client.Client,
 	addonSecret *corev1.Secret) (bool, error) {
 
-	_, err := GetInstalledPackageFromAddonSecret(ctx, localClient, addonSecret)
+	_, err := GetPackageInstallFromAddonSecret(ctx, localClient, addonSecret)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return false, err

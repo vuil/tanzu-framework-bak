@@ -18,9 +18,9 @@ import (
 
 	// +kubebuilder:scaffold:imports
 
-	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
 	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
-	pkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apiserver/apis/packages/v1alpha1"
+	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
+	pkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apiserver/apis/datapackaging/v1alpha1"
 	clusterapiv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	controlplanev1alpha3 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 
@@ -41,7 +41,7 @@ func init() {
 
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = kappctrl.AddToScheme(scheme)
-	_ = ipkgv1alpha1.AddToScheme(scheme)
+	_ = pkgiv1alpha1.AddToScheme(scheme)
 	_ = pkgv1alpha1.AddToScheme(scheme)
 	_ = runtanzuv1alpha1.AddToScheme(scheme)
 	_ = clusterapiv1alpha3.AddToScheme(scheme)

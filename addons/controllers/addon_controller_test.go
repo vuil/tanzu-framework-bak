@@ -21,7 +21,7 @@ import (
 	addonconstants "github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
 
-	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
+	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
 )
 
 const (
@@ -231,7 +231,7 @@ var _ = Describe("Addon Reconciler", func() {
 				}
 				Expect(secret.Type).Should(Equal(v1.SecretTypeOpaque))
 				secretData := string(secret.Data["values.yaml"])
-				Expect(strings.Contains(secretData, "serviceCidr: 100.64.0.0/13")).Should(BeTrue())
+				Expect(secretData).Should(Equal("serviceCidr: 100.64.0.0/13\n"))
 				imageInfoData := string(secret.Data["imageInfo.yaml"])
 				Expect(strings.Contains(imageInfoData, "imageRepository: projects.registry.vmware.com/tkg")).Should(BeTrue())
 				Expect(strings.Contains(imageInfoData, "imagePath: antrea/antrea-debian")).Should(BeTrue())
@@ -263,9 +263,7 @@ var _ = Describe("Addon Reconciler", func() {
 						PathsFrom: []kappctrl.AppFetchInlineSource{
 							{
 								SecretRef: &kappctrl.AppFetchInlineSourceRef{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: "antrea-data-values",
-									},
+									Name: "antrea-data-values",
 								},
 							},
 						},
@@ -301,19 +299,20 @@ var _ = Describe("Addon Reconciler", func() {
 				}
 				Expect(secret.Type).Should(Equal(v1.SecretTypeOpaque))
 				secretData := string(secret.Data["values.yaml"])
-				Expect(strings.Contains(secretData, "serviceCidr: 100.64.0.0/13")).Should(BeTrue())
+				Expect(secretData).Should(Equal("serviceCidr: 100.64.0.0/13\n"))
 				return true
 			}, waitTimeout, pollingInterval).Should(BeTrue())
 
 			Eventually(func() bool {
 				key := client.ObjectKey{
-					Name: addonconstants.TKGCorePackageRepositoryName,
+					Name:      addonconstants.TKGCorePackageRepositoryName,
+					Namespace: addonconstants.TKGAddonsAppNamespace,
 				}
-				pkgr := &ipkgv1alpha1.PackageRepository{}
+				pkgr := &pkgiv1alpha1.PackageRepository{}
 				Expect(k8sClient.Get(ctx, key, pkgr)).To(Succeed())
 
-				pkgrSpec := ipkgv1alpha1.PackageRepositorySpec{
-					Fetch: &ipkgv1alpha1.PackageRepositoryFetch{
+				pkgrSpec := pkgiv1alpha1.PackageRepositorySpec{
+					Fetch: &pkgiv1alpha1.PackageRepositoryFetch{
 						ImgpkgBundle: &kappctrl.AppFetchImgpkgBundle{
 							Image: "projects.registry.vmware.com/tkg/tanzu_core_repo/core-package-repository:v1.4.0+vmware.0",
 						},
@@ -329,7 +328,7 @@ var _ = Describe("Addon Reconciler", func() {
 					Namespace: addonconstants.TKGAddonsAppNamespace,
 					Name:      "antrea",
 				}
-				ipkg := &ipkgv1alpha1.InstalledPackage{}
+				ipkg := &pkgiv1alpha1.PackageInstall{}
 				Expect(k8sClient.Get(ctx, key, ipkg)).To(Succeed())
 
 				Expect(ipkg.Annotations[addontypes.AddonTypeAnnotation]).Should(Equal("cni/antrea"))
@@ -339,14 +338,14 @@ var _ = Describe("Addon Reconciler", func() {
 
 				Expect(ipkg.Spec.ServiceAccountName).Should(Equal(addonconstants.TKGAddonsAppServiceAccount))
 
-				Expect(ipkg.Spec.PackageVersionRef).ShouldNot(BeNil())
-				Expect(ipkg.Spec.PackageVersionRef.PackageName).Should(Equal("antrea.vmware.com"))
-				Expect(ipkg.Spec.PackageVersionRef.VersionSelection.Constraints).Should(Equal("v1.4.0+vmware.1"))
-				Expect(ipkg.Spec.PackageVersionRef.VersionSelection.Prereleases).ShouldNot(Equal(nil))
+				Expect(ipkg.Spec.PackageRef).ShouldNot(BeNil())
+				Expect(ipkg.Spec.PackageRef.RefName).Should(Equal("antrea.vmware.com"))
+				Expect(ipkg.Spec.PackageRef.VersionSelection.Constraints).Should(Equal("v1.4.0+vmware.1"))
+				Expect(ipkg.Spec.PackageRef.VersionSelection.Prereleases).ShouldNot(Equal(nil))
 
-				ipkgValues := []ipkgv1alpha1.InstalledPackageValues{
+				ipkgValues := []pkgiv1alpha1.PackageInstallValues{
 					{
-						SecretRef: &ipkgv1alpha1.InstalledPackageValuesSecretRef{
+						SecretRef: &pkgiv1alpha1.PackageInstallValuesSecretRef{
 							Name: "antrea-data-values",
 						},
 					},
@@ -386,9 +385,7 @@ var _ = Describe("Addon Reconciler", func() {
 						PathsFrom: []kappctrl.AppFetchInlineSource{
 							{
 								SecretRef: &kappctrl.AppFetchInlineSourceRef{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: "test-cluster-3-kapp-controller-data-values",
-									},
+									Name: "test-cluster-3-kapp-controller-data-values",
 								},
 							},
 						},

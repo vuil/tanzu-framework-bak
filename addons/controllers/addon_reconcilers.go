@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
+	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,9 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
-
-	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
 	versions "github.com/vmware-tanzu/carvel-vendir/pkg/vendir/versions/v1alpha1"
 	"github.com/vmware-tanzu/tanzu-framework/addons/constants"
 	addonconstants "github.com/vmware-tanzu/tanzu-framework/addons/pkg/constants"
@@ -177,7 +176,47 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretDelete(
 	return nil
 }
 
-func (r *AddonReconciler) reconcileAddonDataValuesSecretNormal(
+func (r *AddonReconciler) reconcileAddonDataValuesSecretPackagingNormal(
+	ctx context.Context,
+	log logr.Logger,
+	clusterClient client.Client,
+	addonSecret *corev1.Secret,
+	addonConfig *bomtypes.Addon,
+	imageRepository string,
+	bom *bomtypes.Bom) error {
+
+	addonDataValuesSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.GenerateAppSecretNameFromAddonSecret(addonSecret),
+			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+		},
+	}
+
+	addonDataValuesSecretMutateFn := func() error {
+		addonDataValuesSecret.Type = corev1.SecretTypeOpaque
+		if addonDataValuesSecret.Data == nil {
+			addonDataValuesSecret.Data = map[string][]byte{}
+		}
+		for k, v := range addonSecret.Data {
+			// Trim the annotations if we are using the packaging API
+			addonDataValuesSecret.Data[k] = util.TrimAddonDataValueAnnotations(v)
+		}
+
+		return nil
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, addonDataValuesSecret, addonDataValuesSecretMutateFn)
+	if err != nil {
+		log.Error(err, "Error creating or patching addon data values secret")
+		return err
+	}
+
+	r.logOperationResult(log, "addon data values secret", result)
+
+	return nil
+}
+
+func (r *AddonReconciler) reconcileAddonDataValuesSecretLegacyNormal(
 	ctx context.Context,
 	log logr.Logger,
 	clusterClient client.Client,
@@ -201,6 +240,7 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretNormal(
 		for k, v := range addonSecret.Data {
 			addonDataValuesSecret.Data[k] = v
 		}
+		// Add or updates the imageInfo if container image reference exists
 		if len(addonConfig.AddonContainerImages) > 0 {
 
 			imageInfoBytes, err := util.GetImageInfo(addonConfig, imageRepository, bom)
@@ -253,29 +293,29 @@ func (r *AddonReconciler) reconcileAddonAppDelete(
 	return nil
 }
 
-func (r *AddonReconciler) reconcileAddonInstalledPackageDelete(
+func (r *AddonReconciler) reconcileAddonPackageInstallDelete(
 	ctx context.Context,
 	log logr.Logger,
 	clusterClient client.Client,
 	addonSecret *corev1.Secret) error {
 
-	ipkg := &ipkgv1alpha1.InstalledPackage{
+	pkgi := &pkgiv1alpha1.PackageInstall{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
 			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
 		},
 	}
 
-	if err := clusterClient.Delete(ctx, ipkg); err != nil {
+	if err := clusterClient.Delete(ctx, pkgi); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Addon InstalledPackage not found")
+			log.Info("Addon PackageInstall not found")
 			return nil
 		}
-		log.Error(err, "Error deleting addon InstalledPackage")
+		log.Error(err, "Error deleting addon PackageInstall")
 		return err
 	}
 
-	log.Info("Deleted InstalledPackage")
+	log.Info("Deleted PackageInstall")
 
 	return nil
 }
@@ -405,7 +445,7 @@ func (r *AddonReconciler) reconcileAddonAppNormal(
 	return nil
 }
 
-func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
+func (r *AddonReconciler) reconcileAddonPackageInstallNormal(
 	ctx context.Context,
 	log logr.Logger,
 	remoteApp bool,
@@ -422,9 +462,9 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 	 * cluster can reconcile and push the addon/app to the workload cluster
 	 */
 	if remoteApp {
-		// TODO: Switch to remote InstalledPackage when this feature is available in packaging api
+		// TODO: Switch to remote PackageInstall when this feature is available in packaging api
 	} else {
-		ipkg := &ipkgv1alpha1.InstalledPackage{
+		ipkg := &pkgiv1alpha1.PackageInstall{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
 				Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
@@ -446,16 +486,18 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 			ipkg.ObjectMeta.Annotations[addontypes.AddonNameAnnotation] = addonSecret.Name
 			ipkg.ObjectMeta.Annotations[addontypes.AddonNamespaceAnnotation] = addonSecret.Namespace
 
-			ipkg.Spec = ipkgv1alpha1.InstalledPackageSpec{
+			ipkg.Spec = pkgiv1alpha1.PackageInstallSpec{
 				ServiceAccountName: addonconstants.TKGAddonsAppServiceAccount,
-				PackageVersionRef: &ipkgv1alpha1.PackageVersionRef{
-					PackageName: addonConfig.PackageName,
+				PackageRef: &pkgiv1alpha1.PackageRef{
+					RefName: addonConfig.PackageName,
 					VersionSelection: &versions.VersionSelectionSemver{
 						Constraints: addonPackageImage.Tag,
 						Prereleases: &versions.VersionSelectionSemverPrereleases{},
 					},
 				},
-				Values: []ipkgv1alpha1.InstalledPackageValues{{SecretRef: &ipkgv1alpha1.InstalledPackageValuesSecretRef{Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret)}}},
+				Values: []pkgiv1alpha1.PackageInstallValues{
+					{SecretRef: &pkgiv1alpha1.PackageInstallValuesSecretRef{Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret)}},
+				},
 			}
 
 			return nil
@@ -463,11 +505,11 @@ func (r *AddonReconciler) reconcileAddonInstalledPackageNormal(
 
 		result, err := controllerutil.CreateOrPatch(ctx, clusterClient, ipkg, ipkgMutateFn)
 		if err != nil {
-			log.Error(err, "Error creating or patching addon InstalledPackage")
+			log.Error(err, "Error creating or patching addon PackageInstall")
 			return err
 		}
 
-		r.logOperationResult(log, "InstalledPackage", result)
+		r.logOperationResult(log, "PackageInstall", result)
 	}
 
 	return nil
@@ -486,9 +528,9 @@ func (r *AddonReconciler) reconcileAddonDelete(
 
 	clusterClient := util.GetClientFromAddonSecret(addonSecret, r.Client, remoteClusterClient)
 
-	if ok, _ := util.IsInstalledPackagePresent(ctx, clusterClient, addonSecret); ok {
-		if err := r.reconcileAddonInstalledPackageDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
-			log.Error(err, "Error reconciling addon InstalledPackage delete")
+	if ok, _ := util.IsPackageInstallPresent(ctx, clusterClient, addonSecret); ok {
+		if err := r.reconcileAddonPackageInstallDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
+			log.Error(err, "Error reconciling addon PackageInstall CR delete")
 			return err
 		}
 	} else {
@@ -545,20 +587,25 @@ func (r *AddonReconciler) reconcileAddonNormal(
 		}
 	}
 
-	if err := r.reconcileAddonDataValuesSecretNormal(ctx, logWithContext, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
-		log.Error(err, "Error reconciling addon data values secret")
-		return err
-	}
-
 	if addonConfig.PackageName != "" && !util.IsRemoteApp(addonSecret) {
-		// TODO: Switch to remote InstalledPackage when this feature is available in packaging api
-		if err := r.reconcileAddonInstalledPackageNormal(ctx, logWithContext, remoteApp, clusterClient, addonSecret, addonConfig, bom); err != nil {
-			log.Error(err, "Error reconciling addon InstalledPackage")
+		// TODO: Switch to remote PackageInstall when this feature is available in packaging api
+		if err := r.reconcileAddonDataValuesSecretPackagingNormal(ctx, logWithContext, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
+			log.Error(err, "Error reconciling addon data values secret")
+			return err
+		}
+
+		if err := r.reconcileAddonPackageInstallNormal(ctx, logWithContext, remoteApp, clusterClient, addonSecret, addonConfig, bom); err != nil {
+			log.Error(err, "Error reconciling addon PackageInstall CR")
 			return err
 		}
 	} else {
+		if err := r.reconcileAddonDataValuesSecretLegacyNormal(ctx, logWithContext, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
+			log.Error(err, "Error reconciling addon data values secret")
+			return err
+		}
+
 		if err := r.reconcileAddonAppNormal(ctx, logWithContext, remoteApp, remoteCluster, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
-			log.Error(err, "Error reconciling addon app")
+			log.Error(err, "Error reconciling addon APP CR")
 			return err
 		}
 	}

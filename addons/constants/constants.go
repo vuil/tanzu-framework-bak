@@ -57,6 +57,9 @@ const (
 
 	/* name sections */
 
+	// TKGAddonsNamespace is the TKG addon namespace
+	TKGAddonsNamespace = "tkg-system"
+
 	//TKGCorePackageRepositoryName is the name of core package repository applied in the cluster
 	TKGCorePackageRepositoryName = "tkg-core-package-repository"
 

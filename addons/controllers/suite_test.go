@@ -31,7 +31,8 @@ import (
 
 	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
 
-	ipkgv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/installpackage/v1alpha1"
+	runtanzuv1alpha1 "github.com/vmware-tanzu-private/core/apis/run/v1alpha1"
+	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
 	runtanzuv1alpha1 "github.com/vmware-tanzu/tanzu-framework/apis/run/v1alpha1"
 )
 
@@ -71,7 +72,6 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(externalCRDPaths).ToNot(BeEmpty())
 	testEnv.CRDDirectoryPaths = externalCRDPaths
 	testEnv.CRDDirectoryPaths = append(testEnv.CRDDirectoryPaths, filepath.Join("..", "..", "config", "crd", "bases"))
-	testEnv.CRDDirectoryPaths = append(testEnv.CRDDirectoryPaths, filepath.Join(".", "testdata", "crd"))
 	testEnv.ErrorIfCRDPathMissing = true
 
 	cfg, err = testEnv.Start()
@@ -93,7 +93,7 @@ var _ = BeforeSuite(func(done Done) {
 	err = controlplanev1alpha3.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = ipkgv1alpha1.AddToScheme(scheme)
+	err = pkgiv1alpha1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
@@ -148,6 +148,7 @@ func getExternalCRDPaths() ([]string, error) {
 	externalDeps := map[string][]string{
 		"sigs.k8s.io/cluster-api": {"config/crd/bases",
 			"controlplane/kubeadm/config/crd/bases"},
+		"github.com/vmware-tanzu/carvel-kapp-controller": {"config/crds.yml"},
 	}
 
 	var crdPaths []string
