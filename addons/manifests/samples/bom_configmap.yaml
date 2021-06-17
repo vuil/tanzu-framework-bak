@@ -83,8 +83,6 @@ data:
         - workload
         templatesImagePath: addons/vsphere-csi-templates
         templatesImageTag: 98adbf4
-<<<<<<< HEAD:addons/manifests/samples/bom_configmap.yaml
-=======
 
 ---
 apiVersion: v1
@@ -104,4 +102,3 @@ stringData:
     #@overlay/match-child-defaults missing_ok=True
     ---
     serviceCidr: 100.64.0.0/13
->>>>>>> cherry pick addon changes:addons/controllers/testdata/test-cluster-1.yaml

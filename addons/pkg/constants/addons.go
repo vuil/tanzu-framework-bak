@@ -48,5 +48,5 @@ const (
 	TKGCorePackageRepositoryImageName = "tanzuCorePackageRepositoryImage"
 
 	//TKGCorePackageRepositoryName is the name of core package repository applied in the cluster
-	TKGCorePackageRepositoryName = "tkg-core-package-repository"
+	TKGCorePackageRepositoryName = "core"
 )

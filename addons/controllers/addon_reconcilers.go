@@ -471,7 +471,7 @@ func (r *AddonReconciler) reconcileAddonPackageInstallNormal(
 			},
 		}
 
-		addonPackageImage, err := bom.GetImageInfo(constants.TKGCorePackageRepositoryComponentName, "", addonConfig.PackageName)
+		addonPackageImage, err := bom.GetImageInfo(addonconstants.TKGCorePackageRepositoryComponentName, "", addonConfig.PackageName)
 		if err != nil {
 			log.Error(err, "Error getting package image")
 			return err

@@ -28,13 +28,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/vmware-tanzu/tanzu-framework/addons/constants"
-	addonconfig "github.com/vmware-tanzu/tanzu-framework/addons/pkg/config"
-	addontypes "github.com/vmware-tanzu/tanzu-framework/addons/pkg/types"
-	"github.com/vmware-tanzu/tanzu-framework/addons/pkg/util"
-	addonpredicates "github.com/vmware-tanzu/tanzu-framework/addons/predicates"
-	runtanzuv1alpha1 "github.com/vmware-tanzu/tanzu-framework/apis/run/v1alpha1"
-	bomtypes "github.com/vmware-tanzu/tanzu-framework/pkg/v1/tkr/pkg/types"
+	"github.com/vmware-tanzu-private/core/addons/constants"
+	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
+	addonconstants "github.com/vmware-tanzu-private/core/addons/pkg/constants"
+	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
+	"github.com/vmware-tanzu-private/core/addons/pkg/util"
+	addonpredicates "github.com/vmware-tanzu-private/core/addons/predicates"
+	runtanzuv1alpha1 "github.com/vmware-tanzu-private/core/apis/run/v1alpha1"
+	bomtypes "github.com/vmware-tanzu-private/core/pkg/v1/tkr/pkg/types"
 
 	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
 	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
@@ -297,15 +298,15 @@ func (r *AddonReconciler) reconcileCorePackageRepository(
 
 	repositoryImage, err := util.GetCorePackageRepositoryImageFromBom(bom)
 	if err != nil {
-		log.Error(err, "Core package repository image not found", constants.PackageRepositoryLogKey, constants.TKGCorePackageRepositoryName)
+		log.Error(err, "Core package repository image not found", constants.PackageRepositoryLogKey, addonconstants.TKGCorePackageRepositoryImageName)
 		return ctrl.Result{}, err
 	}
 
 	// build the core PackageRepository CR
 	corePackageRepository := &pkgiv1alpha1.PackageRepository{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.TKGCorePackageRepositoryName,
-			Namespace: constants.TKGAddonsNamespace,
+			Name:      addonconstants.TKGCorePackageRepositoryName,
+			Namespace: addonconstants.TKGAddonsAppNamespace,
 		},
 	}
 
