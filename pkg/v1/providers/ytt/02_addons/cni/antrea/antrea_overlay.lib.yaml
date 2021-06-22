@@ -35,3 +35,25 @@ spec:
         - image: #@ "{}/{}:{}".format(antreaImageRepo, antreaImage.imagePath, antreaImage.tag)
 
 #@ end
+
+#@ def removeversionedannotation():
+
+#@overlay/match by=overlay.subset({"kind":"ConfigMap","metadata":{"name": "antrea-ca"}})
+---
+kind: ConfigMap
+metadata:
+  name: antrea-ca
+  annotations:
+    #@overlay/remove
+    kapp.k14s.io/versioned: ""
+
+#@overlay/match by=overlay.subset({"kind":"ConfigMap","metadata":{"name": "antrea-config-b59fc7d2b4"}})
+---
+kind: ConfigMap
+metadata:
+  name: antrea-config-b59fc7d2b4
+  annotations:
+    #@overlay/remove
+    kapp.k14s.io/versioned: ""
+
+#@ end
