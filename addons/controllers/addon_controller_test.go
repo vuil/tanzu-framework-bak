@@ -16,10 +16,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"sigs.k8s.io/cluster-api/util/secret"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	addonconstants "github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
+	"github.com/vmware-tanzu-private/core/addons/testutil"
 
 	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
 )
@@ -70,8 +73,8 @@ var _ = Describe("Addon Reconciler", func() {
 		}
 		antreaApp := &kappctrl.App{}
 		// some testcases don't create App CR
-		k8sClient.Get(ctx, appKey, antreaApp)
-		k8sClient.Delete(ctx, antreaApp)
+		k8sClient.Get(ctx, appKey, antreaApp) // nolint:errcheck
+		k8sClient.Delete(ctx, antreaApp)      // nolint:errcheck
 
 		By("Deleting kubeconfig for cluster")
 		key := client.ObjectKey{
@@ -381,6 +384,7 @@ var _ = Describe("Addon Reconciler", func() {
 				appTmplYtt := kappctrl.AppTemplateYtt{
 					IgnoreUnknownComments: true,
 					Strict:                false,
+					Paths:                 []string{"config"},
 					Inline: &kappctrl.AppFetchInline{
 						PathsFrom: []kappctrl.AppFetchInlineSource{
 							{

@@ -235,7 +235,6 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretLegacyNormal(
 		}
 		// Add or updates the imageInfo if container image reference exists
 		if len(addonConfig.AddonContainerImages) > 0 {
-
 			imageInfoBytes, err := util.GetImageInfo(addonConfig, imageRepository, bom)
 			if err != nil {
 				log.Error(err, "Error retrieving addon image info")
@@ -286,6 +285,7 @@ func (r *AddonReconciler) reconcileAddonAppDelete(
 	return nil
 }
 
+// nolint:dupl
 func (r *AddonReconciler) reconcileAddonPackageInstallDelete(
 	ctx context.Context,
 	log logr.Logger,
@@ -363,7 +363,7 @@ func (r *AddonReconciler) reconcileAddonAppNormal(
 
 		app.Spec.SyncPeriod = &metav1.Duration{Duration: r.Config.AppSyncPeriod}
 
-		templateImageURL, err := util.GetTemplateImageUrl(addonConfig, imageRepository, bom)
+		templateImageURL, err := util.GetTemplateImageURL(addonConfig, imageRepository, bom)
 		if err != nil {
 			log.Error(err, "Error getting addon template image")
 			return err
@@ -405,7 +405,6 @@ func (r *AddonReconciler) reconcileAddonAppNormal(
 					},
 				},
 			}
-
 		} else {
 			app.Spec.Fetch = []kappctrl.AppFetch{
 				{

@@ -140,7 +140,7 @@ func (p *pkgClient) deletePackageInstall(o *tkgpackagedatamodel.PackageOptions) 
 	}
 
 	if err := p.kappClient.GetClient().Delete(context.Background(), obj); err != nil {
-		return errors.Wrap(err, "failed to delete PackageInstall CR resource")
+		return errors.Wrap(err, "failed to delete PackageInstall resource")
 	}
 
 	return nil

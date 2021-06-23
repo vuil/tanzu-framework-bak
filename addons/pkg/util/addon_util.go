@@ -5,7 +5,6 @@ package util
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -133,8 +132,8 @@ func TrimAddonDataValueAnnotations(dataValues []byte) []byte {
 	return []byte(trimmedDataValues)
 }
 
-// GetTemplateImageUrl gets the image template image url of an addon
-func GetTemplateImageUrl(addonConfig *bomtypes.Addon, imageRepository string, bom *bomtypes.Bom) (string, error) {
+// GetTemplateImageURL gets the image template image url of an addon
+func GetTemplateImageURL(addonConfig *bomtypes.Addon, imageRepository string, bom *bomtypes.Bom) (string, error) {
 	/*example addon section in BOM:
 	  kapp-controller:
 	    category: addons-management
@@ -160,12 +159,10 @@ func GetTemplateImageUrl(addonConfig *bomtypes.Addon, imageRepository string, bo
 		}
 		templateImagePath = addonPackageImage.ImagePath
 		templateImageTag = addonPackageImage.Tag
-
 	} else if len(addonConfig.AddonTemplatesImage) < 1 || len(addonConfig.AddonTemplatesImage[0].ImageRefs) < 1 {
 		// if AddonTemplatesImage and AddonTemplatesImage are not present, use the older BOM format
 		templateImagePath = addonConfig.TemplatesImagePath
 		templateImageTag = addonConfig.TemplatesImageTag
-
 	} else {
 		templateImageComponentName := addonConfig.AddonTemplatesImage[0].ComponentRef
 		templateImageName := addonConfig.AddonTemplatesImage[0].ImageRefs[0]
@@ -179,7 +176,7 @@ func GetTemplateImageUrl(addonConfig *bomtypes.Addon, imageRepository string, bo
 	}
 
 	if templateImagePath == "" || templateImageTag == "" {
-		err := errors.New(fmt.Sprintf("unable to get template image"))
+		err := fmt.Errorf("unable to get template image")
 		return "", err
 	}
 

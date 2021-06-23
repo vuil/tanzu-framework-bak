@@ -273,7 +273,7 @@ func (r *AddonReconciler) reconcileNormal(
 		addonSecret := addonSecrets.Items[i]
 		logWithContext := log.WithValues(constants.AddonSecretNamespaceLogKey, addonSecret.Namespace, constants.AddonSecretNameLogKey, addonSecret.Name)
 
-		result, err = r.reconcileAddonSecret(ctx, log, cluster, remoteClient, &addonSecret, imageRepository, bom)
+		result, err = r.reconcileAddonSecret(ctx, logWithContext, cluster, remoteClient, &addonSecret, imageRepository, bom)
 		if err != nil {
 			logWithContext.Error(err, "Error reconciling addon secret")
 			errors = append(errors, err)
