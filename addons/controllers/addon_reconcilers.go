@@ -180,10 +180,7 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretPackagingNormal(
 	ctx context.Context,
 	log logr.Logger,
 	clusterClient client.Client,
-	addonSecret *corev1.Secret,
-	addonConfig *bomtypes.Addon,
-	imageRepository string,
-	bom *bomtypes.Bom) error {
+	addonSecret *corev1.Secret) error {
 
 	addonDataValuesSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -194,9 +191,7 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretPackagingNormal(
 
 	addonDataValuesSecretMutateFn := func() error {
 		addonDataValuesSecret.Type = corev1.SecretTypeOpaque
-		if addonDataValuesSecret.Data == nil {
-			addonDataValuesSecret.Data = map[string][]byte{}
-		}
+		addonDataValuesSecret.Data = map[string][]byte{}
 		for k, v := range addonSecret.Data {
 			// Trim the annotations if we are using the packaging API
 			addonDataValuesSecret.Data[k] = util.TrimAddonDataValueAnnotations(v)
@@ -234,9 +229,7 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretLegacyNormal(
 
 	addonDataValuesSecretMutateFn := func() error {
 		addonDataValuesSecret.Type = corev1.SecretTypeOpaque
-		if addonDataValuesSecret.Data == nil {
-			addonDataValuesSecret.Data = map[string][]byte{}
-		}
+		addonDataValuesSecret.Data = map[string][]byte{}
 		for k, v := range addonSecret.Data {
 			addonDataValuesSecret.Data[k] = v
 		}
@@ -387,6 +380,32 @@ func (r *AddonReconciler) reconcileAddonAppNormal(
 					},
 				},
 			}
+
+			app.Spec.Template = []kappctrl.AppTemplate{
+				{
+					Ytt: &kappctrl.AppTemplateYtt{
+						IgnoreUnknownComments: true,
+						Strict:                false,
+						Paths:                 []string{"config"},
+						Inline: &kappctrl.AppFetchInline{
+							PathsFrom: []kappctrl.AppFetchInlineSource{
+								{
+									SecretRef: &kappctrl.AppFetchInlineSourceRef{
+										Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret),
+									},
+								},
+							},
+						},
+					},
+					Kbld: &kappctrl.AppTemplateKbld{
+						Paths: []string{
+							"-",
+							".imgpkg/images.yml",
+						},
+					},
+				},
+			}
+
 		} else {
 			app.Spec.Fetch = []kappctrl.AppFetch{
 				{
@@ -395,24 +414,24 @@ func (r *AddonReconciler) reconcileAddonAppNormal(
 					},
 				},
 			}
-		}
 
-		app.Spec.Template = []kappctrl.AppTemplate{
-			{
-				Ytt: &kappctrl.AppTemplateYtt{
-					IgnoreUnknownComments: true,
-					Strict:                false,
-					Inline: &kappctrl.AppFetchInline{
-						PathsFrom: []kappctrl.AppFetchInlineSource{
-							{
-								SecretRef: &kappctrl.AppFetchInlineSourceRef{
-									Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret),
+			app.Spec.Template = []kappctrl.AppTemplate{
+				{
+					Ytt: &kappctrl.AppTemplateYtt{
+						IgnoreUnknownComments: true,
+						Strict:                false,
+						Inline: &kappctrl.AppFetchInline{
+							PathsFrom: []kappctrl.AppFetchInlineSource{
+								{
+									SecretRef: &kappctrl.AppFetchInlineSourceRef{
+										Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret),
+									},
 								},
 							},
 						},
 					},
 				},
-			},
+			}
 		}
 
 		app.Spec.Deploy = []kappctrl.AppDeploy{
@@ -589,7 +608,7 @@ func (r *AddonReconciler) reconcileAddonNormal(
 
 	if addonConfig.PackageName != "" && !util.IsRemoteApp(addonSecret) {
 		// TODO: Switch to remote PackageInstall when this feature is available in packaging api
-		if err := r.reconcileAddonDataValuesSecretPackagingNormal(ctx, logWithContext, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
+		if err := r.reconcileAddonDataValuesSecretPackagingNormal(ctx, logWithContext, clusterClient, addonSecret); err != nil {
 			log.Error(err, "Error reconciling addon data values secret")
 			return err
 		}
