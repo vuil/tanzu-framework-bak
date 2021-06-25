@@ -39,7 +39,7 @@ const (
 	TKGDataValueFormatString = "#@data/values\n#@overlay/match-child-defaults missing_ok=True\n---\n"
 
 	// TKGDataValueFormatStringShort is short version of required annotations for YTT data value file
-	TKGDataValueFormatStringShort = "#@data/values\n"
+	TKGDataValueFormatStringShort = "#@data/values\n---\n"
 
 	// TKGCorePackageRepositoryComponentName is the name of component that includes the package and repository images
 	TKGCorePackageRepositoryComponentName = "tkg-core-packages"

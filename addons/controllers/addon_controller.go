@@ -30,22 +30,46 @@ import (
 
 	"github.com/vmware-tanzu-private/core/addons/constants"
 	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
-	addonconstants "github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
 	"github.com/vmware-tanzu-private/core/addons/pkg/util"
 	addonpredicates "github.com/vmware-tanzu-private/core/addons/predicates"
 	runtanzuv1alpha1 "github.com/vmware-tanzu-private/core/apis/run/v1alpha1"
 	bomtypes "github.com/vmware-tanzu-private/core/pkg/v1/tkr/pkg/types"
-
-	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
-	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
 )
 
 const (
 	deleteRequeueAfter = 10 * time.Second
 )
 
-// AddonReconciler contains the reconciler information for add on controllers.
+type AddonKappResourceReconciler interface {
+	ReconcileAddonKappResourceNormal(
+		ctx context.Context,
+		log logr.Logger,
+		remoteApp bool,
+		remoteCluster *clusterapiv1alpha3.Cluster,
+		clusterClient client.Client,
+		addonSecret *corev1.Secret,
+		addonConfig *bomtypes.Addon,
+		imageRepository string,
+		bom *bomtypes.Bom) error
+
+	ReconcileAddonDataValuesSecretNormal(
+		ctx context.Context,
+		log logr.Logger,
+		clusterClient client.Client,
+		addonSecret *corev1.Secret,
+		addonConfig *bomtypes.Addon,
+		imageRepository string,
+		bom *bomtypes.Bom) error
+
+	ReconcileAddonKappResourceDelete(
+		ctx context.Context,
+		log logr.Logger,
+		clusterClient client.Client,
+		addonSecret *corev1.Secret) error
+}
+
+// AddonReconciler contains the reconciler information for addon controllers.
 type AddonReconciler struct {
 	Client     client.Client
 	Log        logr.Logger
@@ -263,7 +287,7 @@ func (r *AddonReconciler) reconcileNormal(
 		result ctrl.Result
 	)
 	// Reconcile core package repository in the cluster
-	result, err = r.reconcileCorePackageRepository(ctx, log, remoteClient, imageRepository, bom)
+	err = PackageReconciler{Config: r.Config}.reconcileCorePackageRepository(ctx, log, remoteClient, imageRepository, bom)
 	if err != nil {
 		log.Error(err, "Error reconciling core package repository")
 		errors = append(errors, err)
@@ -286,53 +310,6 @@ func (r *AddonReconciler) reconcileNormal(
 	}
 
 	return result, nil
-}
-
-// reconcileCorePackageRepository reconciles the core package repository in the cluster
-func (r *AddonReconciler) reconcileCorePackageRepository(
-	ctx context.Context,
-	log logr.Logger,
-	clusterClient client.Client,
-	imageRepository string,
-	bom *bomtypes.Bom) (_ ctrl.Result, retErr error) {
-
-	repositoryImage, err := util.GetCorePackageRepositoryImageFromBom(bom)
-	if err != nil {
-		log.Error(err, "Core package repository image not found", constants.PackageRepositoryLogKey, addonconstants.TKGCorePackageRepositoryImageName)
-		return ctrl.Result{}, err
-	}
-
-	// build the core PackageRepository CR
-	corePackageRepository := &pkgiv1alpha1.PackageRepository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      addonconstants.TKGCorePackageRepositoryName,
-			Namespace: addonconstants.TKGAddonsAppNamespace,
-		},
-	}
-
-	// apply the core PackageRepository CR
-	addonDataValuesSecretMutateFn := func() error {
-		corePackageRepository.Spec = pkgiv1alpha1.PackageRepositorySpec{
-			Fetch: &pkgiv1alpha1.PackageRepositoryFetch{
-				ImgpkgBundle: &kappctrl.AppFetchImgpkgBundle{
-					Image: fmt.Sprintf("%s/%s:%s", imageRepository, repositoryImage.ImagePath, repositoryImage.Tag),
-				},
-			},
-		}
-
-		return nil
-	}
-
-	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, corePackageRepository, addonDataValuesSecretMutateFn)
-	if err != nil {
-		log.Error(err, "Error creating or patching core package repository")
-		return ctrl.Result{}, err
-	}
-	r.logOperationResult(log, "core package repository", result)
-
-	// TODO: Not sure if we need to wait until the core package repository is reconciled successfully
-
-	return ctrl.Result{}, nil
 }
 
 // reconcileNormal reconciles the addons belonging to the cluster
@@ -548,4 +525,27 @@ func (r *AddonReconciler) shouldNotReconcile(
 	}
 
 	return false
+}
+
+// logOperationResult logs the reconcile operation results
+func logOperationResult(log logr.Logger, resourceName string, result controllerutil.OperationResult) {
+	switch result {
+	case controllerutil.OperationResultCreated,
+		controllerutil.OperationResultUpdated,
+		controllerutil.OperationResultUpdatedStatus,
+		controllerutil.OperationResultUpdatedStatusOnly:
+		log.Info(fmt.Sprintf("Resource %s %s", resourceName, result))
+	default:
+	}
+}
+
+func (r *AddonReconciler) GetAddonKappResourceReconciler(reconcilerType string) (error, AddonKappResourceReconciler) {
+	switch reconcilerType {
+	case constants.AppReconcilerKey:
+		return nil, AppReconciler{Config: r.Config}
+	case constants.PackageReconcilerKey:
+		return nil, PackageReconciler{Config: r.Config}
+	}
+	return fmt.Errorf("invalid reconciler type: %s", reconcilerType), nil
+
 }

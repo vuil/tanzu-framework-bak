@@ -5,7 +5,7 @@
 package constants
 
 const (
-	/* log key sections */
+	/* log key section */
 
 	// NameLogKey is the log key for "name".
 	NameLogKey = "name"
@@ -54,4 +54,12 @@ const (
 
 	// PackageRepositoryLogKey is the log key for "core-package-repository"
 	PackageRepositoryLogKey = "package-repository"
+
+	/* reconciler key section */
+
+	// PackageReconcilerKey is the log key for "name".
+	PackageReconcilerKey = "Package"
+
+	// AppReconcilerKey is the log key for "name".
+	AppReconcilerKey = "App"
 )
