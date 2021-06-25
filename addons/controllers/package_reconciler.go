@@ -3,9 +3,10 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/vmware-tanzu-private/core/addons/constants"
+	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
+
 	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
-	addonconstants "github.com/vmware-tanzu-private/core/addons/pkg/constants"
+	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
 	bomtypes "github.com/vmware-tanzu-private/core/pkg/v1/tkr/pkg/types"
 	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
@@ -36,15 +37,15 @@ func (r PackageReconciler) reconcileCorePackageRepository(
 
 	repositoryImage, err := util.GetCorePackageRepositoryImageFromBom(bom)
 	if err != nil {
-		log.Error(err, "Core package repository image not found", constants.PackageRepositoryLogKey, addonconstants.TKGCorePackageRepositoryImageName)
+		log.Error(err, "Core package repository image not found", constants.PackageRepositoryLogKey, constants.TKGCorePackageRepositoryImageName)
 		return err
 	}
 
 	// build the core PackageRepository CR
 	corePackageRepository := &pkgiv1alpha1.PackageRepository{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      addonconstants.TKGCorePackageRepositoryName,
-			Namespace: addonconstants.TKGAddonsAppNamespace,
+			Name:      vars.TKGCorePackageRepositoryName,
+			Namespace: vars.TKGAddonsNamespace,
 		},
 	}
 
@@ -191,7 +192,7 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 			},
 		}
 
-		addonPackageImage, err := bom.GetImageInfo(addonconstants.TKGCorePackageRepositoryComponentName, "", addonConfig.PackageName)
+		addonPackageImage, err := bom.GetImageInfo(constants.TKGCorePackageRepositoryComponentName, "", addonConfig.PackageName)
 		if err != nil {
 			log.Error(err, "Error getting package image")
 			return err
@@ -207,7 +208,7 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 			ipkg.ObjectMeta.Annotations[addontypes.AddonNamespaceAnnotation] = addonSecret.Namespace
 
 			ipkg.Spec = pkgiv1alpha1.PackageInstallSpec{
-				ServiceAccountName: addonconstants.TKGAddonsAppServiceAccount,
+				ServiceAccountName: vars.TKGAddonsServiceAccount,
 				PackageRef: &pkgiv1alpha1.PackageRef{
 					RefName: addonConfig.PackageName,
 					VersionSelection: &versions.VersionSelectionSemver{

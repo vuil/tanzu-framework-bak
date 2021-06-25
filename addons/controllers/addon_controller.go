@@ -28,8 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/vmware-tanzu-private/core/addons/constants"
 	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
+	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
 	"github.com/vmware-tanzu-private/core/addons/pkg/util"
 	addonpredicates "github.com/vmware-tanzu-private/core/addons/predicates"
@@ -541,9 +541,9 @@ func logOperationResult(log logr.Logger, resourceName string, result controlleru
 
 func (r *AddonReconciler) GetAddonKappResourceReconciler(reconcilerType string) (error, AddonKappResourceReconciler) {
 	switch reconcilerType {
-	case constants.AppReconcilerKey:
+	case constants.TKGAppReconcilerKey:
 		return nil, AppReconciler{Config: r.Config}
-	case constants.PackageReconcilerKey:
+	case constants.TKGPackageReconcilerKey:
 		return nil, PackageReconciler{Config: r.Config}
 	}
 	return fmt.Errorf("invalid reconciler type: %s", reconcilerType), nil

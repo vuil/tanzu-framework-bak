@@ -6,6 +6,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
 	"strconv"
 	"strings"
 
@@ -76,7 +77,7 @@ func GenerateAppNamespaceFromAddonSecret(addonSecret *corev1.Secret) string {
 	if remoteApp {
 		return addonSecret.Namespace
 	}
-	return constants.TKGAddonsAppNamespace
+	return vars.TKGAddonsNamespace
 }
 
 // GetClientFromAddonSecret gets appropriate cluster client given addon secret
@@ -95,7 +96,7 @@ func GetClientFromAddonSecret(addonSecret *corev1.Secret, localClient, remoteCli
 func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository string, bom *bomtypes.Bom) ([]byte, error) {
 	componentRefs := addonConfig.AddonContainerImages
 
-	addonImageInfo := &addontypes.AddonImageInfo{Info: addontypes.ImageInfo{ImageRepository: imageRepository, ImagePullPolicy: constants.TKGAddonsImagePullPolicy, Images: map[string]addontypes.Image{}}}
+	addonImageInfo := &addontypes.AddonImageInfo{Info: addontypes.ImageInfo{ImageRepository: imageRepository, ImagePullPolicy: vars.TKGAddonsImagePullPolicy, Images: map[string]addontypes.Image{}}}
 
 	// No Image will be added if componentRefs is empty
 	for _, componentRef := range componentRefs {

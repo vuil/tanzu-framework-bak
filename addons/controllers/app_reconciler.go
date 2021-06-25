@@ -3,14 +3,16 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
-	"github.com/vmware-tanzu-private/core/addons/constants"
 	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
-	addonconstants "github.com/vmware-tanzu-private/core/addons/pkg/constants"
+	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
 	"github.com/vmware-tanzu-private/core/addons/pkg/util"
+	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
 	bomtypes "github.com/vmware-tanzu-private/core/pkg/v1/tkr/pkg/types"
 	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,7 +70,7 @@ func (r AppReconciler) ReconcileAddonKappResourceNormal(
 				},
 			}
 		} else {
-			app.Spec.ServiceAccountName = addonconstants.TKGAddonsAppServiceAccount
+			app.Spec.ServiceAccountName = vars.TKGAddonsServiceAccount
 		}
 
 		app.Spec.SyncPeriod = &metav1.Duration{Duration: r.Config.AppSyncPeriod}

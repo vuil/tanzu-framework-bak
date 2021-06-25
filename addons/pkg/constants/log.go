@@ -53,13 +53,5 @@ const (
 	BOMNamespaceLogKey = "bom-ns"
 
 	// PackageRepositoryLogKey is the log key for "core-package-repository"
-	PackageRepositoryLogKey = "package-repository"
-
-	/* reconciler key section */
-
-	// PackageReconcilerKey is the log key for "name".
-	PackageReconcilerKey = "Package"
-
-	// AppReconcilerKey is the log key for "name".
-	AppReconcilerKey = "App"
+	PackageRepositoryLogKey = "core-package-repository"
 )

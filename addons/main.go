@@ -24,11 +24,10 @@ import (
 	clusterapiv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	controlplanev1alpha3 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1alpha3"
 
-	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
-
-	"github.com/vmware-tanzu/tanzu-framework/addons/controllers"
-	addonconfig "github.com/vmware-tanzu/tanzu-framework/addons/pkg/config"
-	runtanzuv1alpha1 "github.com/vmware-tanzu/tanzu-framework/apis/run/v1alpha1"
+	"github.com/vmware-tanzu-private/core/addons/controllers"
+	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
+	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
+	runtanzuv1alpha1 "github.com/vmware-tanzu-private/core/apis/run/v1alpha1"
 )
 
 var (
@@ -58,6 +57,7 @@ func main() {
 	var appSyncPeriod time.Duration
 	var appWaitTimeout time.Duration
 
+	// controller configurations
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
@@ -68,6 +68,14 @@ func main() {
 		"The minimum interval at which watched resources are reconciled (e.g. 10m)")
 	flag.DurationVar(&appSyncPeriod, "app-sync-period", 5*time.Minute, "Frequency of app reconciliation (e.g. 5m)")
 	flag.DurationVar(&appWaitTimeout, "app-wait-timeout", 30*time.Second, "Maximum time to wait for app to be ready (e.g. 30s)")
+	// resource configurations
+	flag.StringVar(&vars.TKGAddonsNamespace, "addon-namespace", vars.TKGAddonsNamespace, "The namespace of addon resources")
+	flag.StringVar(&vars.TKGAddonsServiceAccount, "addon-service-account-name", vars.TKGAddonsServiceAccount, "The name of addon service account")
+	flag.StringVar(&vars.TKGAddonsClusterRole, "addon-cluster-role-name", vars.TKGAddonsClusterRole, "The name of addon clusterRole")
+	flag.StringVar(&vars.TKGAddonsClusterRoleBinding, "addon-cluster-role-binding-name", vars.TKGAddonsClusterRoleBinding, "The names of addon clusterRoleBinding")
+	flag.StringVar(&vars.TKGAddonsImagePullPolicy, "addon-image-pull-policy", vars.TKGAddonsImagePullPolicy, "The addon image pull policy")
+	flag.StringVar(&vars.TKGCorePackageRepositoryName, "core-package-repo-name", vars.TKGCorePackageRepositoryName, "The name of core package repository")
+
 	flag.Parse()
 
 	ctrl.SetLogger(klogr.New())

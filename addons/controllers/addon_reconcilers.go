@@ -5,11 +5,8 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
-	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
-	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -18,12 +15,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	versions "github.com/vmware-tanzu/carvel-vendir/pkg/vendir/versions/v1alpha1"
-	"github.com/vmware-tanzu/tanzu-framework/addons/constants"
-	addonconstants "github.com/vmware-tanzu/tanzu-framework/addons/pkg/constants"
-	addontypes "github.com/vmware-tanzu/tanzu-framework/addons/pkg/types"
-	"github.com/vmware-tanzu/tanzu-framework/addons/pkg/util"
-	bomtypes "github.com/vmware-tanzu/tanzu-framework/pkg/v1/tkr/pkg/types"
+	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
+	"github.com/vmware-tanzu-private/core/addons/pkg/util"
+	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
+	bomtypes "github.com/vmware-tanzu-private/core/pkg/v1/tkr/pkg/types"
 )
 
 func (r *AddonReconciler) reconcileAddonNamespace(
@@ -33,7 +28,7 @@ func (r *AddonReconciler) reconcileAddonNamespace(
 
 	addonNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: addonconstants.TKGAddonsAppNamespace,
+			Name: vars.TKGAddonsNamespace,
 		},
 	}
 
@@ -43,7 +38,7 @@ func (r *AddonReconciler) reconcileAddonNamespace(
 		return err
 	}
 
-	r.logOperationResult(log, "addon namespace", result)
+	logOperationResult(log, "addon namespace", result)
 
 	return nil
 }
@@ -55,8 +50,8 @@ func (r *AddonReconciler) reconcileAddonServiceAccount(
 
 	addonServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      addonconstants.TKGAddonsAppServiceAccount,
-			Namespace: addonconstants.TKGAddonsAppNamespace,
+			Name:      vars.TKGAddonsServiceAccount,
+			Namespace: vars.TKGAddonsNamespace,
 		},
 	}
 
@@ -66,7 +61,7 @@ func (r *AddonReconciler) reconcileAddonServiceAccount(
 		return err
 	}
 
-	r.logOperationResult(log, "addon service account", result)
+	logOperationResult(log, "addon service account", result)
 
 	return nil
 }
@@ -78,7 +73,7 @@ func (r *AddonReconciler) reconcileAddonRole(
 
 	addonRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: addonconstants.TKGAddonsAppClusterRole,
+			Name: vars.TKGAddonsClusterRole,
 		},
 	}
 
@@ -100,11 +95,11 @@ func (r *AddonReconciler) reconcileAddonRole(
 		return err
 	}
 
-	r.logOperationResult(log, "addon role", roleResult)
+	logOperationResult(log, "addon role", roleResult)
 
 	addonRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: addonconstants.TKGAddonsAppClusterRoleBinding,
+			Name: vars.TKGAddonsClusterRoleBinding,
 		},
 	}
 
@@ -112,15 +107,15 @@ func (r *AddonReconciler) reconcileAddonRole(
 		addonRoleBinding.Subjects = []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      addonconstants.TKGAddonsAppServiceAccount,
-				Namespace: addonconstants.TKGAddonsAppNamespace,
+				Name:      vars.TKGAddonsServiceAccount,
+				Namespace: vars.TKGAddonsNamespace,
 			},
 		}
 
 		addonRoleBinding.RoleRef = rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     addonconstants.TKGAddonsAppClusterRole,
+			Name:     vars.TKGAddonsClusterRole,
 		}
 
 		return nil
@@ -132,20 +127,9 @@ func (r *AddonReconciler) reconcileAddonRole(
 		return err
 	}
 
-	r.logOperationResult(log, "addon role binding", roleBindingResult)
+	logOperationResult(log, "addon role binding", roleBindingResult)
 
 	return nil
-}
-
-func (r *AddonReconciler) logOperationResult(log logr.Logger, resourceName string, result controllerutil.OperationResult) {
-	switch result {
-	case controllerutil.OperationResultCreated,
-		controllerutil.OperationResultUpdated,
-		controllerutil.OperationResultUpdatedStatus,
-		controllerutil.OperationResultUpdatedStatusOnly:
-		log.Info(fmt.Sprintf("Resource %s %s", resourceName, result))
-	default:
-	}
 }
 
 // nolint:dupl
@@ -176,363 +160,6 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretDelete(
 	return nil
 }
 
-func (r *AddonReconciler) reconcileAddonDataValuesSecretPackagingNormal(
-	ctx context.Context,
-	log logr.Logger,
-	clusterClient client.Client,
-	addonSecret *corev1.Secret) error {
-
-	addonDataValuesSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GenerateAppSecretNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
-		},
-	}
-
-	addonDataValuesSecretMutateFn := func() error {
-		addonDataValuesSecret.Type = corev1.SecretTypeOpaque
-		addonDataValuesSecret.Data = map[string][]byte{}
-		for k, v := range addonSecret.Data {
-			// Trim the annotations if we are using the packaging API
-			addonDataValuesSecret.Data[k] = util.TrimAddonDataValueAnnotations(v)
-		}
-
-		return nil
-	}
-
-	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, addonDataValuesSecret, addonDataValuesSecretMutateFn)
-	if err != nil {
-		log.Error(err, "Error creating or patching addon data values secret")
-		return err
-	}
-
-	r.logOperationResult(log, "addon data values secret", result)
-
-	return nil
-}
-
-func (r *AddonReconciler) reconcileAddonDataValuesSecretLegacyNormal(
-	ctx context.Context,
-	log logr.Logger,
-	clusterClient client.Client,
-	addonSecret *corev1.Secret,
-	addonConfig *bomtypes.Addon,
-	imageRepository string,
-	bom *bomtypes.Bom) error {
-
-	addonDataValuesSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GenerateAppSecretNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
-		},
-	}
-
-	addonDataValuesSecretMutateFn := func() error {
-		addonDataValuesSecret.Type = corev1.SecretTypeOpaque
-		addonDataValuesSecret.Data = map[string][]byte{}
-		for k, v := range addonSecret.Data {
-			addonDataValuesSecret.Data[k] = v
-		}
-		// Add or updates the imageInfo if container image reference exists
-		if len(addonConfig.AddonContainerImages) > 0 {
-			imageInfoBytes, err := util.GetImageInfo(addonConfig, imageRepository, bom)
-			if err != nil {
-				log.Error(err, "Error retrieving addon image info")
-				return err
-			}
-			addonDataValuesSecret.Data["imageInfo.yaml"] = imageInfoBytes
-		}
-
-		return nil
-	}
-
-	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, addonDataValuesSecret, addonDataValuesSecretMutateFn)
-	if err != nil {
-		log.Error(err, "Error creating or patching addon data values secret")
-		return err
-	}
-
-	r.logOperationResult(log, "addon data values secret", result)
-
-	return nil
-}
-
-// nolint:dupl
-func (r *AddonReconciler) reconcileAddonAppDelete(
-	ctx context.Context,
-	log logr.Logger,
-	clusterClient client.Client,
-	addonSecret *corev1.Secret) error {
-
-	app := &kappctrl.App{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
-		},
-	}
-
-	if err := clusterClient.Delete(ctx, app); err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Info("Addon app not found")
-			return nil
-		}
-		log.Error(err, "Error deleting addon app")
-		return err
-	}
-
-	log.Info("Deleted app")
-
-	return nil
-}
-
-// nolint:dupl
-func (r *AddonReconciler) reconcileAddonPackageInstallDelete(
-	ctx context.Context,
-	log logr.Logger,
-	clusterClient client.Client,
-	addonSecret *corev1.Secret) error {
-
-	pkgi := &pkgiv1alpha1.PackageInstall{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
-		},
-	}
-
-	if err := clusterClient.Delete(ctx, pkgi); err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Info("Addon PackageInstall not found")
-			return nil
-		}
-		log.Error(err, "Error deleting addon PackageInstall")
-		return err
-	}
-
-	log.Info("Deleted PackageInstall")
-
-	return nil
-}
-
-// nolint:funlen
-func (r *AddonReconciler) reconcileAddonAppNormal(
-	ctx context.Context,
-	log logr.Logger,
-	remoteApp bool,
-	remoteCluster *clusterapiv1alpha3.Cluster,
-	clusterClient client.Client,
-	addonSecret *corev1.Secret,
-	addonConfig *bomtypes.Addon,
-	imageRepository string,
-	bom *bomtypes.Bom) error {
-
-	addonName := util.GetAddonNameFromAddonSecret(addonSecret)
-
-	app := &kappctrl.App{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
-		},
-	}
-
-	appMutateFn := func() error {
-		if app.ObjectMeta.Annotations == nil {
-			app.ObjectMeta.Annotations = make(map[string]string)
-		}
-
-		app.ObjectMeta.Annotations[addontypes.AddonTypeAnnotation] = fmt.Sprintf("%s/%s", addonConfig.Category, addonName)
-		app.ObjectMeta.Annotations[addontypes.AddonNameAnnotation] = addonSecret.Name
-		app.ObjectMeta.Annotations[addontypes.AddonNamespaceAnnotation] = addonSecret.Namespace
-
-		/*
-		 * remoteApp means App CR on the management cluster that kapp-controller uses to remotely manages set of objects deployed in a workload cluster.
-		 * workload clusters kubeconfig details need to be added for remote App so that kapp-controller on management
-		 * cluster can reconcile and push the addon/app to the workload cluster
-		 */
-		if remoteApp {
-			clusterKubeconfigDetails := util.GetClusterKubeconfigSecretDetails(remoteCluster)
-
-			app.Spec.Cluster = &kappctrl.AppCluster{
-				KubeconfigSecretRef: &kappctrl.AppClusterKubeconfigSecretRef{
-					Name: clusterKubeconfigDetails.Name,
-					Key:  clusterKubeconfigDetails.Key,
-				},
-			}
-		} else {
-			app.Spec.ServiceAccountName = addonconstants.TKGAddonsAppServiceAccount
-		}
-
-		app.Spec.SyncPeriod = &metav1.Duration{Duration: r.Config.AppSyncPeriod}
-
-		templateImageURL, err := util.GetTemplateImageURL(addonConfig, imageRepository, bom)
-		if err != nil {
-			log.Error(err, "Error getting addon template image")
-			return err
-		}
-		log.Info("Addon template image found", constants.ImageURLLogKey, templateImageURL)
-
-		// If the imageUrl is obtained from packageName
-		// Use ImgpkgBundle in App CR
-		if addonConfig.PackageName != "" {
-			app.Spec.Fetch = []kappctrl.AppFetch{
-				{
-					ImgpkgBundle: &kappctrl.AppFetchImgpkgBundle{
-						Image: templateImageURL,
-					},
-				},
-			}
-
-			app.Spec.Template = []kappctrl.AppTemplate{
-				{
-					Ytt: &kappctrl.AppTemplateYtt{
-						IgnoreUnknownComments: true,
-						Strict:                false,
-						Paths:                 []string{"config"},
-						Inline: &kappctrl.AppFetchInline{
-							PathsFrom: []kappctrl.AppFetchInlineSource{
-								{
-									SecretRef: &kappctrl.AppFetchInlineSourceRef{
-										Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret),
-									},
-								},
-							},
-						},
-					},
-					Kbld: &kappctrl.AppTemplateKbld{
-						Paths: []string{
-							"-",
-							".imgpkg/images.yml",
-						},
-					},
-				},
-			}
-		} else {
-			app.Spec.Fetch = []kappctrl.AppFetch{
-				{
-					Image: &kappctrl.AppFetchImage{
-						URL: templateImageURL,
-					},
-				},
-			}
-
-			app.Spec.Template = []kappctrl.AppTemplate{
-				{
-					Ytt: &kappctrl.AppTemplateYtt{
-						IgnoreUnknownComments: true,
-						Strict:                false,
-						Inline: &kappctrl.AppFetchInline{
-							PathsFrom: []kappctrl.AppFetchInlineSource{
-								{
-									SecretRef: &kappctrl.AppFetchInlineSourceRef{
-										Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret),
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-		}
-
-		app.Spec.Deploy = []kappctrl.AppDeploy{
-			{
-				Kapp: &kappctrl.AppDeployKapp{
-					// --wait-timeout flag specifies the maximum time to wait for App deployment. In some corner cases,
-					// current App could have the dependency on the deployment of another App, so current App could get
-					// stuck in wait phase.
-					RawOptions: []string{fmt.Sprintf("--wait-timeout=%s", r.Config.AppWaitTimeout)},
-				},
-			},
-		}
-
-		// If its a remoteApp set delete to no-op since the app doesnt have to be deleted when cluster is deleted.
-		if remoteApp {
-			app.Spec.NoopDelete = true
-		}
-
-		return nil
-	}
-
-	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, app, appMutateFn)
-	if err != nil {
-		log.Error(err, "Error creating or patching addon App")
-		return err
-	}
-
-	r.logOperationResult(log, "app", result)
-
-	return nil
-}
-
-func (r *AddonReconciler) reconcileAddonPackageInstallNormal(
-	ctx context.Context,
-	log logr.Logger,
-	remoteApp bool,
-	clusterClient client.Client,
-	addonSecret *corev1.Secret,
-	addonConfig *bomtypes.Addon,
-	bom *bomtypes.Bom) error {
-
-	addonName := util.GetAddonNameFromAddonSecret(addonSecret)
-
-	/*
-	 * remoteApp means App CR on the management cluster that kapp-controller uses to remotely manages set of objects deployed in a workload cluster.
-	 * workload clusters kubeconfig details need to be added for remote App so that kapp-controller on management
-	 * cluster can reconcile and push the addon/app to the workload cluster
-	 */
-	if remoteApp {
-		// TODO: Switch to remote PackageInstall when this feature is available in packaging api
-	} else {
-		ipkg := &pkgiv1alpha1.PackageInstall{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
-				Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
-			},
-		}
-
-		addonPackageImage, err := bom.GetImageInfo(addonconstants.TKGCorePackageRepositoryComponentName, "", addonConfig.PackageName)
-		if err != nil {
-			log.Error(err, "Error getting package image")
-			return err
-		}
-
-		ipkgMutateFn := func() error {
-			if ipkg.ObjectMeta.Annotations == nil {
-				ipkg.ObjectMeta.Annotations = make(map[string]string)
-			}
-
-			ipkg.ObjectMeta.Annotations[addontypes.AddonTypeAnnotation] = fmt.Sprintf("%s/%s", addonConfig.Category, addonName)
-			ipkg.ObjectMeta.Annotations[addontypes.AddonNameAnnotation] = addonSecret.Name
-			ipkg.ObjectMeta.Annotations[addontypes.AddonNamespaceAnnotation] = addonSecret.Namespace
-
-			ipkg.Spec = pkgiv1alpha1.PackageInstallSpec{
-				ServiceAccountName: addonconstants.TKGAddonsAppServiceAccount,
-				PackageRef: &pkgiv1alpha1.PackageRef{
-					RefName: addonConfig.PackageName,
-					VersionSelection: &versions.VersionSelectionSemver{
-						Constraints: addonPackageImage.Tag,
-						Prereleases: &versions.VersionSelectionSemverPrereleases{},
-					},
-				},
-				Values: []pkgiv1alpha1.PackageInstallValues{
-					{SecretRef: &pkgiv1alpha1.PackageInstallValuesSecretRef{Name: util.GenerateAppSecretNameFromAddonSecret(addonSecret)}},
-				},
-			}
-
-			return nil
-		}
-
-		result, err := controllerutil.CreateOrPatch(ctx, clusterClient, ipkg, ipkgMutateFn)
-		if err != nil {
-			log.Error(err, "Error creating or patching addon PackageInstall")
-			return err
-		}
-
-		r.logOperationResult(log, "PackageInstall", result)
-	}
-
-	return nil
-}
-
 func (r *AddonReconciler) reconcileAddonDelete(
 	ctx context.Context,
 	log logr.Logger,
@@ -546,16 +173,23 @@ func (r *AddonReconciler) reconcileAddonDelete(
 
 	clusterClient := util.GetClientFromAddonSecret(addonSecret, r.Client, remoteClusterClient)
 
+	var reconcilerKey string
 	if ok, _ := util.IsPackageInstallPresent(ctx, clusterClient, addonSecret); ok {
-		if err := r.reconcileAddonPackageInstallDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
-			log.Error(err, "Error reconciling addon PackageInstall CR delete")
-			return err
-		}
+		log.Info("Deleting PackageInstall")
+		reconcilerKey = constants.TKGPackageReconcilerKey
 	} else {
-		if err := r.reconcileAddonAppDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
-			log.Error(err, "Error reconciling addon app delete")
-			return err
-		}
+		log.Info("Deleting App")
+		reconcilerKey = constants.TKGAppReconcilerKey
+	}
+	err, kappResourceReconciler := r.GetAddonKappResourceReconciler(reconcilerKey)
+	if err != nil {
+		log.Error(err, "Error finding kapp resource reconciler")
+		return err
+	}
+
+	if err := kappResourceReconciler.ReconcileAddonKappResourceDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
+		log.Error(err, "Error reconciling addon kapp resource delete")
+		return err
 	}
 
 	if err := r.reconcileAddonDataValuesSecretDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
@@ -605,27 +239,28 @@ func (r *AddonReconciler) reconcileAddonNormal(
 		}
 	}
 
-	if addonConfig.PackageName != "" && !util.IsRemoteApp(addonSecret) {
-		// TODO: Switch to remote PackageInstall when this feature is available in packaging api
-		if err := r.reconcileAddonDataValuesSecretPackagingNormal(ctx, logWithContext, clusterClient, addonSecret); err != nil {
-			log.Error(err, "Error reconciling addon data values secret")
-			return err
-		}
-
-		if err := r.reconcileAddonPackageInstallNormal(ctx, logWithContext, remoteApp, clusterClient, addonSecret, addonConfig, bom); err != nil {
-			log.Error(err, "Error reconciling addon PackageInstall CR")
-			return err
-		}
+	var reconcilerKey string
+	if addonConfig.PackageName != "" {
+		log.Info("Reconciling PackageInstall")
+		reconcilerKey = constants.TKGPackageReconcilerKey
 	} else {
-		if err := r.reconcileAddonDataValuesSecretLegacyNormal(ctx, logWithContext, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
-			log.Error(err, "Error reconciling addon data values secret")
-			return err
-		}
+		log.Info("Reconciling App")
+		reconcilerKey = constants.TKGAppReconcilerKey
+	}
+	err, kappResourceReconciler := r.GetAddonKappResourceReconciler(reconcilerKey)
+	if err != nil {
+		log.Error(err, "Error finding kapp resource reconciler")
+		return err
+	}
 
-		if err := r.reconcileAddonAppNormal(ctx, logWithContext, remoteApp, remoteCluster, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
-			log.Error(err, "Error reconciling addon APP CR")
-			return err
-		}
+	if err := kappResourceReconciler.ReconcileAddonDataValuesSecretNormal(ctx, logWithContext, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
+		log.Error(err, "Error reconciling addon data values secret")
+		return err
+	}
+
+	if err := kappResourceReconciler.ReconcileAddonKappResourceNormal(ctx, logWithContext, remoteApp, remoteCluster, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
+		log.Error(err, "Error reconciling addon kapp resource")
+		return err
 	}
 
 	return nil
