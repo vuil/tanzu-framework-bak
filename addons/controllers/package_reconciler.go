@@ -192,12 +192,6 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 			},
 		}
 
-		addonPackageImage, err := bom.GetImageInfo(constants.TKGCorePackageRepositoryComponentName, "", addonConfig.PackageName)
-		if err != nil {
-			log.Error(err, "Error getting package image")
-			return err
-		}
-
 		ipkgMutateFn := func() error {
 			if ipkg.ObjectMeta.Annotations == nil {
 				ipkg.ObjectMeta.Annotations = make(map[string]string)
@@ -212,7 +206,6 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 				PackageRef: &pkgiv1alpha1.PackageRef{
 					RefName: addonConfig.PackageName,
 					VersionSelection: &versions.VersionSelectionSemver{
-						Constraints: addonPackageImage.Tag,
 						Prereleases: &versions.VersionSelectionSemverPrereleases{},
 					},
 				},
