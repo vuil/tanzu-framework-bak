@@ -160,6 +160,54 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretDelete(
 	return nil
 }
 
+func (r AddonReconciler) ReconcileAddonDataValuesSecretNormal(
+	ctx context.Context,
+	log logr.Logger,
+	clusterClient client.Client,
+	addonSecret *corev1.Secret,
+	addonConfig *bomtypes.Addon,
+	imageRepository string,
+	bom *bomtypes.Bom) error {
+
+	addonDataValuesSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      util.GenerateAppSecretNameFromAddonSecret(addonSecret),
+			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+		},
+	}
+
+	addonDataValuesSecretMutateFn := func() error {
+		addonDataValuesSecret.Type = corev1.SecretTypeOpaque
+		if addonDataValuesSecret.Data == nil {
+			addonDataValuesSecret.Data = map[string][]byte{}
+		}
+		for k, v := range addonSecret.Data {
+			addonDataValuesSecret.Data[k] = v
+		}
+		// Add or updates the imageInfo if container image reference exists
+		if len(addonConfig.AddonContainerImages) > 0 {
+			imageInfoBytes, err := util.GetImageInfo(addonConfig, imageRepository, bom)
+			if err != nil {
+				log.Error(err, "Error retrieving addon image info")
+				return err
+			}
+			addonDataValuesSecret.Data["imageInfo.yaml"] = imageInfoBytes
+		}
+
+		return nil
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, addonDataValuesSecret, addonDataValuesSecretMutateFn)
+	if err != nil {
+		log.Error(err, "Error creating or patching addon data values secret")
+		return err
+	}
+
+	logOperationResult(log, "addon app data values secret", result)
+
+	return nil
+}
+
 func (r *AddonReconciler) reconcileAddonDelete(
 	ctx context.Context,
 	log logr.Logger,
@@ -239,6 +287,11 @@ func (r *AddonReconciler) reconcileAddonNormal(
 		}
 	}
 
+	if err := r.ReconcileAddonDataValuesSecretNormal(ctx, logWithContext, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
+		log.Error(err, "Error reconciling addon data values secret")
+		return err
+	}
+
 	var reconcilerKey string
 	if addonConfig.PackageName != "" {
 		log.Info("Reconciling PackageInstall")
@@ -250,11 +303,6 @@ func (r *AddonReconciler) reconcileAddonNormal(
 	err, kappResourceReconciler := r.GetAddonKappResourceReconciler(reconcilerKey)
 	if err != nil {
 		log.Error(err, "Error finding kapp resource reconciler")
-		return err
-	}
-
-	if err := kappResourceReconciler.ReconcileAddonDataValuesSecretNormal(ctx, logWithContext, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
-		log.Error(err, "Error reconciling addon data values secret")
 		return err
 	}
 

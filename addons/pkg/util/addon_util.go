@@ -6,9 +6,9 @@ package util
 import (
 	"context"
 	"fmt"
-	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
 	"strconv"
-	"strings"
+
+	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
 
 	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
 	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
@@ -18,9 +18,8 @@ import (
 	clusterapiv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/vmware-tanzu/tanzu-framework/addons/pkg/constants"
-	addontypes "github.com/vmware-tanzu/tanzu-framework/addons/pkg/types"
-	bomtypes "github.com/vmware-tanzu/tanzu-framework/pkg/v1/tkr/pkg/types"
+	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
+	bomtypes "github.com/vmware-tanzu-private/core/pkg/v1/tkr/pkg/types"
 )
 
 // GetAddonSecretsForCluster gets the addon secrets belonging to the cluster
@@ -115,13 +114,6 @@ func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository string, bom *bomt
 	}
 
 	return ImageInfoBytes, nil
-}
-
-// TrimAddonDataValueAnnotations removes the ytt annotation of addon data values if the annotation ("#@data/values\n#@overlay/match-child-defaults missing_ok=True\n---\n") exists
-func TrimAddonDataValueAnnotations(dataValues []byte) []byte {
-	trimmedDataValues := strings.ReplaceAll(string(dataValues), constants.TKGDataValueFormatString, "")
-	trimmedDataValues = strings.ReplaceAll(trimmedDataValues, constants.TKGDataValueFormatStringShort, "")
-	return []byte(trimmedDataValues)
 }
 
 // GetApp gets the app CR from cluster

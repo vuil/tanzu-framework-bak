@@ -152,6 +152,8 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 							},
 						},
 					},
+				},
+				{
 					Kbld: &kappctrl.AppTemplateKbld{
 						Paths: []string{
 							"-",
@@ -200,6 +202,7 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 			ipkg.ObjectMeta.Annotations[addontypes.AddonTypeAnnotation] = fmt.Sprintf("%s/%s", addonConfig.Category, addonName)
 			ipkg.ObjectMeta.Annotations[addontypes.AddonNameAnnotation] = addonSecret.Name
 			ipkg.ObjectMeta.Annotations[addontypes.AddonNamespaceAnnotation] = addonSecret.Namespace
+			ipkg.ObjectMeta.Annotations[addontypes.AddonExtYttPathsFromSecretNameAnnotation] = util.GenerateAppSecretNameFromAddonSecret(addonSecret)
 
 			ipkg.Spec = pkgiv1alpha1.PackageInstallSpec{
 				ServiceAccountName: vars.TKGAddonsServiceAccount,
@@ -253,44 +256,6 @@ func (r PackageReconciler) ReconcileAddonKappResourceDelete(
 	}
 
 	log.Info("Deleted PackageInstall")
-
-	return nil
-}
-
-func (r PackageReconciler) ReconcileAddonDataValuesSecretNormal(
-	ctx context.Context,
-	log logr.Logger,
-	clusterClient client.Client,
-	addonSecret *corev1.Secret,
-	addonConfig *bomtypes.Addon,
-	imageRepository string,
-	bom *bomtypes.Bom) error {
-
-	addonDataValuesSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      util.GenerateAppSecretNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
-		},
-	}
-
-	addonDataValuesSecretMutateFn := func() error {
-		addonDataValuesSecret.Type = corev1.SecretTypeOpaque
-		addonDataValuesSecret.Data = map[string][]byte{}
-		for k, v := range addonSecret.Data {
-			// Trim the annotations if we are using the packaging API
-			addonDataValuesSecret.Data[k] = util.TrimAddonDataValueAnnotations(v)
-		}
-
-		return nil
-	}
-
-	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, addonDataValuesSecret, addonDataValuesSecretMutateFn)
-	if err != nil {
-		log.Error(err, "Error creating or patching addon data values secret")
-		return err
-	}
-
-	logOperationResult(log, "addon package data values secret", result)
 
 	return nil
 }

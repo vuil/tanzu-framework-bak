@@ -53,15 +53,6 @@ type AddonKappResourceReconciler interface {
 		imageRepository string,
 		bom *bomtypes.Bom) error
 
-	ReconcileAddonDataValuesSecretNormal(
-		ctx context.Context,
-		log logr.Logger,
-		clusterClient client.Client,
-		addonSecret *corev1.Secret,
-		addonConfig *bomtypes.Addon,
-		imageRepository string,
-		bom *bomtypes.Bom) error
-
 	ReconcileAddonKappResourceDelete(
 		ctx context.Context,
 		log logr.Logger,
