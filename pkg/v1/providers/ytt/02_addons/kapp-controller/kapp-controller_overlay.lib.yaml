@@ -8,7 +8,6 @@
 #@   bomData = get_bom_data_for_tkr_name()
 #@ end
 
-#@ GLOBAL_NAMESPACE = "tkg-standard"
 #@ def kappcontrolleroverlay():
 
 #@overlay/match by=overlay.subset({"kind":"Deployment","metadata":{"name": "kapp-controller"}})

@@ -22,7 +22,7 @@ directories:
   contents:
   - path: .
     git:
-      url: git@github.com:shyaamsn/tce.git
-      ref: update_kapp_controller_rc1
+      url: git@github.com:vmware-tanzu/tce.git
+      ref: 8960010310b8d2ffcd9d67a6807d134c31ca8394
     includePaths:
     - addons/packages/kapp-controller/bundle/config/**/*

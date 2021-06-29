@@ -8,11 +8,6 @@ import (
 	"strings"
 	"time"
 
-	rbacv1 "k8s.io/api/rbac/v1"
-	"sigs.k8s.io/cluster-api/util/secret"
-
-	"github.com/vmware-tanzu-private/core/addons/testutil"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
