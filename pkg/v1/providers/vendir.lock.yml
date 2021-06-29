@@ -2,18 +2,18 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: update package bundle urls to consume versioned changes (#785)
-      sha: a48cdaa6d0390f076a3c3abbed64a1615960980a
+      commitTitle: Remove old docs to avoid confusion (#576)...
+      sha: 8960010310b8d2ffcd9d67a6807d134c31ca8394
       tags:
-      - v0.6.0-dev.1-34-ga48cdaa
+      - v0.6.0-dev.2-5-g8960010
     path: .
   path: ytt/vendir/vsphere_cpi/_ytt_lib
 - contents:
   - git:
-      commitTitle: 'Merge pull request #691 from chenliu1993/chenliu1993/addVersioned...'
-      sha: e7843850896f3c45333cc757309758534330b17e
+      commitTitle: Remove old docs to avoid confusion (#576)...
+      sha: 8960010310b8d2ffcd9d67a6807d134c31ca8394
       tags:
-      - v0.6.0-dev.1-8-ge784385
+      - v0.6.0-dev.2-5-g8960010
     path: .
   path: ytt/vendir/cni/_ytt_lib
 - contents:
