@@ -5,6 +5,7 @@ package controllers
 
 import (
 	"context"
+	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -120,6 +121,16 @@ var _ = BeforeSuite(func(done Done) {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Addon"),
 		Scheme: mgr.GetScheme(),
+		Config: addonconfig.Config{
+			AppSyncPeriod:           appSyncPeriod,
+			AppWaitTimeout:          appWaitTimeout,
+			AddonNamespace:          addonNamespace,
+			AddonServiceAccount:     addonServiceAccount,
+			AddonClusterRole:        addonClusterRole,
+			AddonClusterRoleBinding: addonClusterRoleBinding,
+			AddonImagePullPolicy:    addonImagePullPolicy,
+			CorePackageRepoName:     corePackageRepoName,
+		},
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: 1})).To(Succeed())
 
 	// pre-create namespace

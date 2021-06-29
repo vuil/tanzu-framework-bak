@@ -17,7 +17,6 @@ import (
 
 	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	"github.com/vmware-tanzu-private/core/addons/pkg/util"
-	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
 	bomtypes "github.com/vmware-tanzu-private/core/pkg/v1/tkr/pkg/types"
 )
 
@@ -28,7 +27,7 @@ func (r *AddonReconciler) reconcileAddonNamespace(
 
 	addonNamespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: vars.TKGAddonsNamespace,
+			Name: r.Config.AddonNamespace,
 		},
 	}
 
@@ -50,8 +49,8 @@ func (r *AddonReconciler) reconcileAddonServiceAccount(
 
 	addonServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vars.TKGAddonsServiceAccount,
-			Namespace: vars.TKGAddonsNamespace,
+			Name:      r.Config.AddonServiceAccount,
+			Namespace: r.Config.AddonNamespace,
 		},
 	}
 
@@ -73,7 +72,7 @@ func (r *AddonReconciler) reconcileAddonRole(
 
 	addonRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: vars.TKGAddonsClusterRole,
+			Name: r.Config.AddonClusterRole,
 		},
 	}
 
@@ -99,7 +98,7 @@ func (r *AddonReconciler) reconcileAddonRole(
 
 	addonRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: vars.TKGAddonsClusterRoleBinding,
+			Name: r.Config.AddonClusterRoleBinding,
 		},
 	}
 
@@ -107,15 +106,15 @@ func (r *AddonReconciler) reconcileAddonRole(
 		addonRoleBinding.Subjects = []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      vars.TKGAddonsServiceAccount,
-				Namespace: vars.TKGAddonsNamespace,
+				Name:      r.Config.AddonServiceAccount,
+				Namespace: r.Config.AddonNamespace,
 			},
 		}
 
 		addonRoleBinding.RoleRef = rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     vars.TKGAddonsClusterRole,
+			Name:     r.Config.AddonClusterRole,
 		}
 
 		return nil
@@ -142,7 +141,7 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretDelete(
 	addonDataValuesSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.GenerateAppSecretNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret, r.Config.AddonNamespace),
 		},
 	}
 
@@ -172,7 +171,7 @@ func (r AddonReconciler) ReconcileAddonDataValuesSecretNormal(
 	addonDataValuesSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.GenerateAppSecretNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret, r.Config.AddonNamespace),
 		},
 	}
 
@@ -186,7 +185,7 @@ func (r AddonReconciler) ReconcileAddonDataValuesSecretNormal(
 		}
 		// Add or updates the imageInfo if container image reference exists
 		if len(addonConfig.AddonContainerImages) > 0 {
-			imageInfoBytes, err := util.GetImageInfo(addonConfig, imageRepository, bom)
+			imageInfoBytes, err := util.GetImageInfo(addonConfig, imageRepository, r.Config.AddonImagePullPolicy, bom)
 			if err != nil {
 				log.Error(err, "Error retrieving addon image info")
 				return err
@@ -222,20 +221,20 @@ func (r *AddonReconciler) reconcileAddonDelete(
 	clusterClient := util.GetClientFromAddonSecret(addonSecret, r.Client, remoteClusterClient)
 
 	var reconcilerKey string
-	if ok, _ := util.IsPackageInstallPresent(ctx, clusterClient, addonSecret); ok {
+	if ok, _ := util.IsPackageInstallPresent(ctx, clusterClient, addonSecret, r.Config.AddonNamespace); ok {
 		log.Info("Deleting PackageInstall")
 		reconcilerKey = constants.TKGPackageReconcilerKey
 	} else {
 		log.Info("Deleting App")
 		reconcilerKey = constants.TKGAppReconcilerKey
 	}
-	err, kappResourceReconciler := r.GetAddonKappResourceReconciler(reconcilerKey)
+	err, kappResourceReconciler := r.GetAddonKappResourceReconciler(ctx, logWithContext, clusterClient, reconcilerKey)
 	if err != nil {
 		log.Error(err, "Error finding kapp resource reconciler")
 		return err
 	}
 
-	if err := kappResourceReconciler.ReconcileAddonKappResourceDelete(ctx, logWithContext, clusterClient, addonSecret); err != nil {
+	if err := kappResourceReconciler.ReconcileAddonKappResourceDelete(addonSecret); err != nil {
 		log.Error(err, "Error reconciling addon kapp resource delete")
 		return err
 	}
@@ -300,13 +299,13 @@ func (r *AddonReconciler) reconcileAddonNormal(
 		log.Info("Reconciling App")
 		reconcilerKey = constants.TKGAppReconcilerKey
 	}
-	err, kappResourceReconciler := r.GetAddonKappResourceReconciler(reconcilerKey)
+	err, kappResourceReconciler := r.GetAddonKappResourceReconciler(ctx, logWithContext, clusterClient, reconcilerKey)
 	if err != nil {
 		log.Error(err, "Error finding kapp resource reconciler")
 		return err
 	}
 
-	if err := kappResourceReconciler.ReconcileAddonKappResourceNormal(ctx, logWithContext, remoteApp, remoteCluster, clusterClient, addonSecret, addonConfig, imageRepository, bom); err != nil {
+	if err := kappResourceReconciler.ReconcileAddonKappResourceNormal(remoteApp, remoteCluster, addonSecret, addonConfig, imageRepository, bom); err != nil {
 		log.Error(err, "Error reconciling addon kapp resource")
 		return err
 	}

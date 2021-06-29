@@ -21,15 +21,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
-	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
 	"github.com/vmware-tanzu-private/core/addons/testutil"
 
 	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
 )
 
 const (
-	waitTimeout     = time.Second * 90
-	pollingInterval = time.Second * 2
+	waitTimeout             = time.Second * 90
+	pollingInterval         = time.Second * 2
+	appSyncPeriod           = 5 * time.Minute
+	appWaitTimeout          = 30 * time.Second
+	addonNamespace          = "tkg-system"
+	addonServiceAccount     = "tkg-addons-app-sa"
+	addonClusterRole        = "tkg-addons-app-cluster-role"
+	addonClusterRoleBinding = "tkg-addons-app-cluster-role-binding"
+	addonImagePullPolicy    = "IfNotPresent"
+	corePackageRepoName     = "core"
 )
 
 var _ = Describe("Addon Reconciler", func() {
@@ -59,7 +66,7 @@ var _ = Describe("Addon Reconciler", func() {
 
 		By("Deleting Addon data-values secrets")
 		addonSecretKey := client.ObjectKey{
-			Namespace: vars.TKGAddonsNamespace,
+			Namespace: addonNamespace,
 			Name:      "antrea-data-values",
 		}
 		dataValuesSecret := &v1.Secret{}
@@ -68,7 +75,7 @@ var _ = Describe("Addon Reconciler", func() {
 
 		By("Deleting Addon app CR")
 		appKey := client.ObjectKey{
-			Namespace: vars.TKGAddonsNamespace,
+			Namespace: addonNamespace,
 			Name:      "antrea",
 		}
 		antreaApp := &kappctrl.App{}
@@ -102,7 +109,7 @@ var _ = Describe("Addon Reconciler", func() {
 					return false
 				}
 				for _, n := range ns.Items {
-					if n.Name == vars.TKGAddonsNamespace {
+					if n.Name == addonNamespace {
 						return true
 					}
 				}
@@ -111,8 +118,8 @@ var _ = Describe("Addon Reconciler", func() {
 
 			Eventually(func() bool {
 				key := client.ObjectKey{
-					Namespace: vars.TKGAddonsNamespace,
-					Name:      vars.TKGAddonsServiceAccount,
+					Namespace: addonNamespace,
+					Name:      addonServiceAccount,
 				}
 				svc := &v1.ServiceAccount{}
 				err := k8sClient.Get(ctx, key, svc)
@@ -126,7 +133,7 @@ var _ = Describe("Addon Reconciler", func() {
 					return false
 				}
 				for _, r := range roles.Items {
-					if r.Name == vars.TKGAddonsClusterRole {
+					if r.Name == addonClusterRole {
 						rule := r.Rules[0]
 						if rule.APIGroups[0] == "*" && rule.Verbs[0] == "*" && rule.Resources[0] == "*" {
 							return true
@@ -143,10 +150,10 @@ var _ = Describe("Addon Reconciler", func() {
 					return false
 				}
 				for _, r := range roleBindings.Items {
-					if r.Name == vars.TKGAddonsClusterRoleBinding &&
-						r.RoleRef.Name == vars.TKGAddonsClusterRole {
-						if r.Subjects[0].Name == vars.TKGAddonsServiceAccount &&
-							r.Subjects[0].Namespace == vars.TKGAddonsNamespace {
+					if r.Name == addonClusterRoleBinding &&
+						r.RoleRef.Name == addonClusterRole {
+						if r.Subjects[0].Name == addonServiceAccount &&
+							r.Subjects[0].Namespace == addonNamespace {
 							return true
 						}
 
@@ -157,11 +164,11 @@ var _ = Describe("Addon Reconciler", func() {
 
 		})
 
-		It("Addon controller reconciliation check", func() {
+		It("Should create addon resources", func() {
 
 			Eventually(func() bool {
 				key := client.ObjectKey{
-					Namespace: vars.TKGAddonsNamespace,
+					Namespace: addonNamespace,
 					Name:      "antrea-data-values",
 				}
 				secret := &v1.Secret{}
@@ -177,7 +184,7 @@ var _ = Describe("Addon Reconciler", func() {
 
 			Eventually(func() bool {
 				key := client.ObjectKey{
-					Namespace: vars.TKGAddonsNamespace,
+					Namespace: addonNamespace,
 					Name:      "antrea",
 				}
 				app := &kappctrl.App{}
@@ -188,7 +195,7 @@ var _ = Describe("Addon Reconciler", func() {
 				// TODO why is this needed
 				Expect(app.Annotations[addontypes.AddonNamespaceAnnotation]).Should(Equal("default"))
 
-				Expect(app.Spec.ServiceAccountName).Should(Equal(vars.TKGAddonsServiceAccount))
+				Expect(app.Spec.ServiceAccountName).Should(Equal(addonServiceAccount))
 
 				Expect(app.Spec.Fetch[0].Image.URL).Should(Equal("projects-stg.registry.vmware.com/tkg/addons/antrea-templates:98adbf4"))
 
@@ -220,11 +227,11 @@ var _ = Describe("Addon Reconciler", func() {
 			clusterResourceFilePath = "testdata/test-cluster-2.yaml"
 		})
 
-		It("Addon controller reconciliation check", func() {
+		It("Should create addon resources", func() {
 
 			Eventually(func() bool {
 				key := client.ObjectKey{
-					Namespace: vars.TKGAddonsNamespace,
+					Namespace: addonNamespace,
 					Name:      "antrea-data-values",
 				}
 				secret := &v1.Secret{}
@@ -244,7 +251,7 @@ var _ = Describe("Addon Reconciler", func() {
 
 			Eventually(func() bool {
 				key := client.ObjectKey{
-					Namespace: vars.TKGAddonsNamespace,
+					Namespace: addonNamespace,
 					Name:      "antrea",
 				}
 				app := &kappctrl.App{}
@@ -255,7 +262,7 @@ var _ = Describe("Addon Reconciler", func() {
 				// TODO why is this needed
 				Expect(app.Annotations[addontypes.AddonNamespaceAnnotation]).Should(Equal("default"))
 
-				Expect(app.Spec.ServiceAccountName).Should(Equal(vars.TKGAddonsServiceAccount))
+				Expect(app.Spec.ServiceAccountName).Should(Equal(addonServiceAccount))
 
 				Expect(app.Spec.Fetch[0].Image.URL).Should(Equal("projects.registry.vmware.com/tkg/tanzu_core/addons/antrea-templates:v1.3.1"))
 
@@ -288,11 +295,11 @@ var _ = Describe("Addon Reconciler", func() {
 			clusterResourceFilePath = "testdata/test-cluster-3.yaml"
 		})
 
-		It("Addon controller reconciliation check", func() {
+		It("Should create addon resources", func() {
 
 			Eventually(func() bool {
 				key := client.ObjectKey{
-					Namespace: vars.TKGAddonsNamespace,
+					Namespace: addonNamespace,
 					Name:      "antrea-data-values",
 				}
 				secret := &v1.Secret{}
@@ -308,8 +315,8 @@ var _ = Describe("Addon Reconciler", func() {
 
 			Eventually(func() bool {
 				key := client.ObjectKey{
-					Name:      vars.TKGCorePackageRepositoryName,
-					Namespace: vars.TKGAddonsNamespace,
+					Name:      corePackageRepoName,
+					Namespace: addonNamespace,
 				}
 				pkgr := &pkgiv1alpha1.PackageRepository{}
 				Expect(k8sClient.Get(ctx, key, pkgr)).To(Succeed())
@@ -328,7 +335,7 @@ var _ = Describe("Addon Reconciler", func() {
 
 			Eventually(func() bool {
 				key := client.ObjectKey{
-					Namespace: vars.TKGAddonsNamespace,
+					Namespace: addonNamespace,
 					Name:      "antrea",
 				}
 				ipkg := &pkgiv1alpha1.PackageInstall{}
@@ -339,7 +346,7 @@ var _ = Describe("Addon Reconciler", func() {
 				// TODO why is this needed
 				Expect(ipkg.Annotations[addontypes.AddonNamespaceAnnotation]).Should(Equal("default"))
 
-				Expect(ipkg.Spec.ServiceAccountName).Should(Equal(vars.TKGAddonsServiceAccount))
+				Expect(ipkg.Spec.ServiceAccountName).Should(Equal(addonServiceAccount))
 
 				Expect(ipkg.Spec.PackageRef).ShouldNot(BeNil())
 				Expect(ipkg.Spec.PackageRef.RefName).Should(Equal("antrea.vmware.com"))

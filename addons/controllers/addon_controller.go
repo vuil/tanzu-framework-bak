@@ -43,20 +43,14 @@ const (
 
 type AddonKappResourceReconciler interface {
 	ReconcileAddonKappResourceNormal(
-		ctx context.Context,
-		log logr.Logger,
 		remoteApp bool,
 		remoteCluster *clusterapiv1alpha3.Cluster,
-		clusterClient client.Client,
 		addonSecret *corev1.Secret,
 		addonConfig *bomtypes.Addon,
 		imageRepository string,
 		bom *bomtypes.Bom) error
 
 	ReconcileAddonKappResourceDelete(
-		ctx context.Context,
-		log logr.Logger,
-		clusterClient client.Client,
 		addonSecret *corev1.Secret) error
 }
 
@@ -278,7 +272,7 @@ func (r *AddonReconciler) reconcileNormal(
 		result ctrl.Result
 	)
 	// Reconcile core package repository in the cluster
-	err = PackageReconciler{Config: r.Config}.reconcileCorePackageRepository(ctx, log, remoteClient, imageRepository, bom)
+	err = PackageReconciler{ctx: ctx, log: log, clusterClient: remoteClient, Config: r.Config}.reconcileCorePackageRepository(imageRepository, bom)
 	if err != nil {
 		log.Error(err, "Error reconciling core package repository")
 		errors = append(errors, err)
@@ -447,7 +441,7 @@ func (r *AddonReconciler) removeFinalizerFromAddonSecret(
 	addonName := util.GetAddonNameFromAddonSecret(addonSecret)
 
 	if checkAppBeforeRemoval {
-		appPresent, err := util.IsAppPresent(ctx, r.Client, clusterClient, addonSecret)
+		appPresent, err := util.IsAppPresent(ctx, r.Client, clusterClient, addonSecret, r.Config.AddonNamespace)
 		if err != nil {
 			log.Error(err, "Error checking if app is present", constants.AddonNameLogKey, addonName)
 			return false, false, err
@@ -530,12 +524,16 @@ func logOperationResult(log logr.Logger, resourceName string, result controlleru
 	}
 }
 
-func (r *AddonReconciler) GetAddonKappResourceReconciler(reconcilerType string) (error, AddonKappResourceReconciler) {
+func (r *AddonReconciler) GetAddonKappResourceReconciler(
+	ctx context.Context,
+	log logr.Logger,
+	clusterClient client.Client,
+	reconcilerType string) (error, AddonKappResourceReconciler) {
 	switch reconcilerType {
 	case constants.TKGAppReconcilerKey:
-		return nil, AppReconciler{Config: r.Config}
+		return nil, AppReconciler{ctx: ctx, log: log, clusterClient: clusterClient, Config: r.Config}
 	case constants.TKGPackageReconcilerKey:
-		return nil, PackageReconciler{Config: r.Config}
+		return nil, PackageReconciler{ctx: ctx, log: log, clusterClient: clusterClient, Config: r.Config}
 	}
 	return fmt.Errorf("invalid reconciler type: %s", reconcilerType), nil
 

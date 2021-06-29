@@ -71,12 +71,12 @@ func GenerateAppSecretNameFromAddonSecret(addonSecret *corev1.Secret) string {
 }
 
 // GenerateAppNamespaceFromAddonSecret generates app namespace from addons secret
-func GenerateAppNamespaceFromAddonSecret(addonSecret *corev1.Secret) string {
+func GenerateAppNamespaceFromAddonSecret(addonSecret *corev1.Secret, defaultAddonNamespace string) string {
 	remoteApp := IsRemoteApp(addonSecret)
 	if remoteApp {
 		return addonSecret.Namespace
 	}
-	return vars.TKGAddonsNamespace
+	return defaultAddonNamespace
 }
 
 // GetClientFromAddonSecret gets appropriate cluster client given addon secret
@@ -92,10 +92,10 @@ func GetClientFromAddonSecret(addonSecret *corev1.Secret, localClient, remoteCli
 }
 
 // GetImageInfo gets the image Info of an addon
-func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository string, bom *bomtypes.Bom) ([]byte, error) {
+func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository string, imagePullPolicy string, bom *bomtypes.Bom) ([]byte, error) {
 	componentRefs := addonConfig.AddonContainerImages
 
-	addonImageInfo := &addontypes.AddonImageInfo{Info: addontypes.ImageInfo{ImageRepository: imageRepository, ImagePullPolicy: vars.TKGAddonsImagePullPolicy, Images: map[string]addontypes.Image{}}}
+	addonImageInfo := &addontypes.AddonImageInfo{Info: addontypes.ImageInfo{ImageRepository: imageRepository, ImagePullPolicy: imagePullPolicy, Images: map[string]addontypes.Image{}}}
 
 	// No Image will be added if componentRefs is empty
 	for _, componentRef := range componentRefs {
@@ -120,12 +120,13 @@ func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository string, bom *bomt
 func GetApp(ctx context.Context,
 	localClient client.Client,
 	remoteClient client.Client,
-	addonSecret *corev1.Secret) (*kappctrl.App, error) {
+	addonSecret *corev1.Secret,
+	defaultAddonNamespace string) (*kappctrl.App, error) {
 
 	app := &kappctrl.App{}
 	appObjectKey := client.ObjectKey{
 		Name:      GenerateAppNameFromAddonSecret(addonSecret),
-		Namespace: GenerateAppNamespaceFromAddonSecret(addonSecret),
+		Namespace: GenerateAppNamespaceFromAddonSecret(addonSecret, defaultAddonNamespace),
 	}
 
 	var clusterClient client.Client
@@ -146,12 +147,13 @@ func GetApp(ctx context.Context,
 // GetPackageInstallFromAddonSecret gets the PackageInstall CR from cluster
 func GetPackageInstallFromAddonSecret(ctx context.Context,
 	remoteClient client.Client,
-	addonSecret *corev1.Secret) (*pkgiv1alpha1.PackageInstall, error) {
+	addonSecret *corev1.Secret,
+	defaultAddonNamespace string) (*pkgiv1alpha1.PackageInstall, error) {
 
 	pkgi := &pkgiv1alpha1.PackageInstall{}
 	pkgiObjectKey := client.ObjectKey{
 		Name:      GenerateAppNameFromAddonSecret(addonSecret),
-		Namespace: GenerateAppNamespaceFromAddonSecret(addonSecret),
+		Namespace: GenerateAppNamespaceFromAddonSecret(addonSecret, defaultAddonNamespace),
 	}
 
 	if err := remoteClient.Get(ctx, pkgiObjectKey, pkgi); err != nil {
@@ -165,9 +167,10 @@ func GetPackageInstallFromAddonSecret(ctx context.Context,
 func IsAppPresent(ctx context.Context,
 	localClient client.Client,
 	remoteClient client.Client,
-	addonSecret *corev1.Secret) (bool, error) {
+	addonSecret *corev1.Secret,
+	defaultAddonNamespace string) (bool, error) {
 
-	_, err := GetApp(ctx, localClient, remoteClient, addonSecret)
+	_, err := GetApp(ctx, localClient, remoteClient, addonSecret, defaultAddonNamespace)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return false, err
@@ -201,9 +204,10 @@ func IsAddonPaused(addonSecret *corev1.Secret) bool {
 // IsPackageInstallPresent returns true if PackageInstall is present on the cluster
 func IsPackageInstallPresent(ctx context.Context,
 	localClient client.Client,
-	addonSecret *corev1.Secret) (bool, error) {
+	addonSecret *corev1.Secret,
+	defaultAddonNamespace string) (bool, error) {
 
-	_, err := GetPackageInstallFromAddonSecret(ctx, localClient, addonSecret)
+	_, err := GetPackageInstallFromAddonSecret(ctx, localClient, addonSecret, defaultAddonNamespace)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return false, err

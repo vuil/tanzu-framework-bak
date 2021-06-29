@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
 
 	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
 	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
@@ -24,33 +23,33 @@ import (
 )
 
 type PackageReconciler struct {
-	Config addonconfig.Config
+	ctx           context.Context
+	log           logr.Logger
+	clusterClient client.Client
+	Config        addonconfig.Config
 }
 
 // reconcileCorePackageRepository reconciles the core package repository in the cluster
 func (r PackageReconciler) reconcileCorePackageRepository(
-	ctx context.Context,
-	log logr.Logger,
-	clusterClient client.Client,
 	imageRepository string,
 	bom *bomtypes.Bom) error {
 
 	repositoryImage, err := util.GetCorePackageRepositoryImageFromBom(bom)
 	if err != nil {
-		log.Error(err, "Core package repository image not found", constants.PackageRepositoryLogKey, constants.TKGCorePackageRepositoryImageName)
+		r.log.Error(err, "Core package repository image not found")
 		return err
 	}
 
 	// build the core PackageRepository CR
 	corePackageRepository := &pkgiv1alpha1.PackageRepository{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vars.TKGCorePackageRepositoryName,
-			Namespace: vars.TKGAddonsNamespace,
+			Name:      r.Config.CorePackageRepoName,
+			Namespace: r.Config.AddonNamespace,
 		},
 	}
 
 	// apply the core PackageRepository CR
-	addonDataValuesSecretMutateFn := func() error {
+	packageRepositorytMutateFn := func() error {
 		corePackageRepository.Spec = pkgiv1alpha1.PackageRepositorySpec{
 			Fetch: &pkgiv1alpha1.PackageRepositoryFetch{
 				ImgpkgBundle: &kappctrl.AppFetchImgpkgBundle{
@@ -62,22 +61,19 @@ func (r PackageReconciler) reconcileCorePackageRepository(
 		return nil
 	}
 
-	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, corePackageRepository, addonDataValuesSecretMutateFn)
+	result, err := controllerutil.CreateOrPatch(r.ctx, r.clusterClient, corePackageRepository, packageRepositorytMutateFn)
 	if err != nil {
-		log.Error(err, "Error creating or patching core package repository")
+		r.log.Error(err, "Error creating or patching core package repository")
 		return err
 	}
-	logOperationResult(log, "core package repository", result)
+	logOperationResult(r.log, "core package repository", result)
 
 	return nil
 }
 
 func (r PackageReconciler) ReconcileAddonKappResourceNormal(
-	ctx context.Context,
-	log logr.Logger,
 	remoteApp bool,
 	remoteCluster *clusterapiv1alpha3.Cluster,
-	clusterClient client.Client,
 	addonSecret *corev1.Secret,
 	addonConfig *bomtypes.Addon,
 	imageRepository string,
@@ -96,7 +92,7 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 		app := &kappctrl.App{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
-				Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+				Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret, r.Config.AddonNamespace),
 			},
 		}
 
@@ -122,10 +118,10 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 
 			templateImageURL, err := util.GetTemplateImageURLFromBom(addonConfig, imageRepository, bom)
 			if err != nil {
-				log.Error(err, "Error getting addon template image")
+				r.log.Error(err, "Error getting addon template image")
 				return err
 			}
-			log.Info("Addon template image found", constants.ImageURLLogKey, templateImageURL)
+			r.log.Info("Addon template image found", constants.ImageURLLogKey, templateImageURL)
 
 			// Use ImgpkgBundle in App CR
 			app.Spec.Fetch = []kappctrl.AppFetch{
@@ -179,18 +175,18 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 			return nil
 		}
 
-		result, err := controllerutil.CreateOrPatch(ctx, clusterClient, app, appMutateFn)
+		result, err := controllerutil.CreateOrPatch(r.ctx, r.clusterClient, app, appMutateFn)
 		if err != nil {
-			log.Error(err, "Error creating or patching addon remote App")
+			r.log.Error(err, "Error creating or patching addon remote App")
 			return err
 		}
 
-		logOperationResult(log, "app", result)
+		logOperationResult(r.log, "app", result)
 	} else {
 		ipkg := &pkgiv1alpha1.PackageInstall{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
-				Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+				Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret, r.Config.AddonNamespace),
 			},
 		}
 
@@ -205,7 +201,7 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 			ipkg.ObjectMeta.Annotations[addontypes.AddonExtYttPathsFromSecretNameAnnotation] = util.GenerateAppSecretNameFromAddonSecret(addonSecret)
 
 			ipkg.Spec = pkgiv1alpha1.PackageInstallSpec{
-				ServiceAccountName: vars.TKGAddonsServiceAccount,
+				ServiceAccountName: r.Config.AddonServiceAccount,
 				PackageRef: &pkgiv1alpha1.PackageRef{
 					RefName: addonConfig.PackageName,
 					VersionSelection: &versions.VersionSelectionSemver{
@@ -220,13 +216,13 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 			return nil
 		}
 
-		result, err := controllerutil.CreateOrPatch(ctx, clusterClient, ipkg, ipkgMutateFn)
+		result, err := controllerutil.CreateOrPatch(r.ctx, r.clusterClient, ipkg, ipkgMutateFn)
 		if err != nil {
-			log.Error(err, "Error creating or patching addon PackageInstall")
+			r.log.Error(err, "Error creating or patching addon PackageInstall")
 			return err
 		}
 
-		logOperationResult(log, "PackageInstall", result)
+		logOperationResult(r.log, "PackageInstall", result)
 	}
 
 	return nil
@@ -234,28 +230,25 @@ func (r PackageReconciler) ReconcileAddonKappResourceNormal(
 
 // nolint:dupl
 func (r PackageReconciler) ReconcileAddonKappResourceDelete(
-	ctx context.Context,
-	log logr.Logger,
-	clusterClient client.Client,
 	addonSecret *corev1.Secret) error {
 
 	pkgi := &pkgiv1alpha1.PackageInstall{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret, r.Config.AddonNamespace),
 		},
 	}
 
-	if err := clusterClient.Delete(ctx, pkgi); err != nil {
+	if err := r.clusterClient.Delete(r.ctx, pkgi); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Addon PackageInstall not found")
+			r.log.Info("Addon PackageInstall not found")
 			return nil
 		}
-		log.Error(err, "Error deleting addon PackageInstall")
+		r.log.Error(err, "Error deleting addon PackageInstall")
 		return err
 	}
 
-	log.Info("Deleted PackageInstall")
+	r.log.Info("Deleted PackageInstall")
 
 	return nil
 }

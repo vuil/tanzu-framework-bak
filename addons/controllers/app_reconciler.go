@@ -9,7 +9,6 @@ import (
 	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
 	"github.com/vmware-tanzu-private/core/addons/pkg/util"
-	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
 	bomtypes "github.com/vmware-tanzu-private/core/pkg/v1/tkr/pkg/types"
 	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
 
@@ -22,16 +21,16 @@ import (
 )
 
 type AppReconciler struct {
-	Config addonconfig.Config
+	log           logr.Logger
+	ctx           context.Context
+	clusterClient client.Client
+	Config        addonconfig.Config
 }
 
 // nolint:funlen
 func (r AppReconciler) ReconcileAddonKappResourceNormal(
-	ctx context.Context,
-	log logr.Logger,
 	remoteApp bool,
 	remoteCluster *clusterapiv1alpha3.Cluster,
-	clusterClient client.Client,
 	addonSecret *corev1.Secret,
 	addonConfig *bomtypes.Addon,
 	imageRepository string,
@@ -42,7 +41,7 @@ func (r AppReconciler) ReconcileAddonKappResourceNormal(
 	app := &kappctrl.App{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret, r.Config.AddonNamespace),
 		},
 	}
 
@@ -70,17 +69,17 @@ func (r AppReconciler) ReconcileAddonKappResourceNormal(
 				},
 			}
 		} else {
-			app.Spec.ServiceAccountName = vars.TKGAddonsServiceAccount
+			app.Spec.ServiceAccountName = r.Config.AddonServiceAccount
 		}
 
 		app.Spec.SyncPeriod = &metav1.Duration{Duration: r.Config.AppSyncPeriod}
 
 		templateImageURL, err := util.GetTemplateImageURLFromBom(addonConfig, imageRepository, bom)
 		if err != nil {
-			log.Error(err, "Error getting addon template image")
+			r.log.Error(err, "Error getting addon template image")
 			return err
 		}
-		log.Info("Addon template image found", constants.ImageURLLogKey, templateImageURL)
+		r.log.Info("Addon template image found", constants.ImageURLLogKey, templateImageURL)
 
 		app.Spec.Fetch = []kappctrl.AppFetch{
 			{
@@ -127,41 +126,38 @@ func (r AppReconciler) ReconcileAddonKappResourceNormal(
 		return nil
 	}
 
-	result, err := controllerutil.CreateOrPatch(ctx, clusterClient, app, appMutateFn)
+	result, err := controllerutil.CreateOrPatch(r.ctx, r.clusterClient, app, appMutateFn)
 	if err != nil {
-		log.Error(err, "Error creating or patching addon App")
+		r.log.Error(err, "Error creating or patching addon App")
 		return err
 	}
 
-	logOperationResult(log, "app", result)
+	logOperationResult(r.log, "app", result)
 
 	return nil
 }
 
 // nolint:dupl
 func (r AppReconciler) ReconcileAddonKappResourceDelete(
-	ctx context.Context,
-	log logr.Logger,
-	clusterClient client.Client,
 	addonSecret *corev1.Secret) error {
 
 	app := &kappctrl.App{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      util.GenerateAppNameFromAddonSecret(addonSecret),
-			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret),
+			Namespace: util.GenerateAppNamespaceFromAddonSecret(addonSecret, r.Config.AddonNamespace),
 		},
 	}
 
-	if err := clusterClient.Delete(ctx, app); err != nil {
+	if err := r.clusterClient.Delete(r.ctx, app); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Addon app not found")
+			r.log.Info("Addon app not found")
 			return nil
 		}
-		log.Error(err, "Error deleting addon app")
+		r.log.Error(err, "Error deleting addon app")
 		return err
 	}
 
-	log.Info("Deleted app")
+	r.log.Info("Deleted app")
 
 	return nil
 }

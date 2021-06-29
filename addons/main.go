@@ -5,6 +5,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"time"
 
@@ -26,7 +27,6 @@ import (
 
 	"github.com/vmware-tanzu-private/core/addons/controllers"
 	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
-	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
 	runtanzuv1alpha1 "github.com/vmware-tanzu-private/core/apis/run/v1alpha1"
 )
 
@@ -56,6 +56,12 @@ func main() {
 	var syncPeriod time.Duration
 	var appSyncPeriod time.Duration
 	var appWaitTimeout time.Duration
+	var addonNamespace string
+	var addonServiceAccount string
+	var addonClusterRole string
+	var addonClusterRoleBinding string
+	var addonImagePullPolicy string
+	var corePackageRepoName string
 
 	// controller configurations
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -68,13 +74,13 @@ func main() {
 		"The minimum interval at which watched resources are reconciled (e.g. 10m)")
 	flag.DurationVar(&appSyncPeriod, "app-sync-period", 5*time.Minute, "Frequency of app reconciliation (e.g. 5m)")
 	flag.DurationVar(&appWaitTimeout, "app-wait-timeout", 30*time.Second, "Maximum time to wait for app to be ready (e.g. 30s)")
-	// resource configurations
-	flag.StringVar(&vars.TKGAddonsNamespace, "addon-namespace", vars.TKGAddonsNamespace, "The namespace of addon resources")
-	flag.StringVar(&vars.TKGAddonsServiceAccount, "addon-service-account-name", vars.TKGAddonsServiceAccount, "The name of addon service account")
-	flag.StringVar(&vars.TKGAddonsClusterRole, "addon-cluster-role-name", vars.TKGAddonsClusterRole, "The name of addon clusterRole")
-	flag.StringVar(&vars.TKGAddonsClusterRoleBinding, "addon-cluster-role-binding-name", vars.TKGAddonsClusterRoleBinding, "The names of addon clusterRoleBinding")
-	flag.StringVar(&vars.TKGAddonsImagePullPolicy, "addon-image-pull-policy", vars.TKGAddonsImagePullPolicy, "The addon image pull policy")
-	flag.StringVar(&vars.TKGCorePackageRepositoryName, "core-package-repo-name", vars.TKGCorePackageRepositoryName, "The name of core package repository")
+	// resource configurations (optional)
+	flag.StringVar(&addonNamespace, "addon-namespace", "tkg-system", "The namespace of addon resources")
+	flag.StringVar(&addonServiceAccount, "addon-service-account-name", "tkg-addons-app-sa", "The name of addon service account")
+	flag.StringVar(&addonClusterRole, "addon-cluster-role-name", "tkg-addons-app-cluster-role", "The name of addon clusterRole")
+	flag.StringVar(&addonClusterRoleBinding, "addon-cluster-role-binding-name", "tkg-addons-app-cluster-role-binding", "The name of addon clusterRoleBinding")
+	flag.StringVar(&addonImagePullPolicy, "addon-image-pull-policy", "IfNotPresent", "The addon image pull policy")
+	flag.StringVar(&corePackageRepoName, "core-package-repo-name", "core", "The name of core package repository")
 
 	flag.Parse()
 
@@ -100,8 +106,14 @@ func main() {
 		Log:    ctrl.Log.WithName("controllers").WithName("Addon"),
 		Scheme: mgr.GetScheme(),
 		Config: addonconfig.Config{
-			AppSyncPeriod:  appSyncPeriod,
-			AppWaitTimeout: appWaitTimeout,
+			AppSyncPeriod:           appSyncPeriod,
+			AppWaitTimeout:          appWaitTimeout,
+			AddonNamespace:          addonNamespace,
+			AddonServiceAccount:     addonServiceAccount,
+			AddonClusterRole:        addonClusterRole,
+			AddonClusterRoleBinding: addonClusterRoleBinding,
+			AddonImagePullPolicy:    addonImagePullPolicy,
+			CorePackageRepoName:     corePackageRepoName,
 		},
 	}).SetupWithManager(ctx, mgr, controller.Options{MaxConcurrentReconciles: clusterConcurrency}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Addon")
