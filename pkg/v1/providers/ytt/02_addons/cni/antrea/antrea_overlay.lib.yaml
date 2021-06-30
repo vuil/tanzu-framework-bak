@@ -1,10 +1,18 @@
 #@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:regexp", "regexp")
 #@ load("@ytt:data", "data")
 #@ load("/lib/helpers.star", "get_bom_data_for_tkr_name", "get_image_repo_for_component")
 
 #@ if data.values.PROVIDER_TYPE != "tkg-service-vsphere":
 #@   antreaImage = get_bom_data_for_tkr_name().components["antrea"][0].images.antreaImage
 #@   antreaImageRepo = get_image_repo_for_component(antreaImage)
+#@ end
+
+#@ def antrea_config_regex_match(x, l, r):
+#@ if not ("metadata" in l and "name" in l["metadata"]):
+#@   return False
+#@ end
+#@  return regexp.match("antrea-config-*", l["metadata"]["name"])
 #@ end
 
 #@ def updateantreaimage():
@@ -36,22 +44,21 @@ spec:
 
 #@ end
 
+
+#! kapp.k14s.io/versioned need to be removed from any resources because it prevents App CR from taking over the resources
 #@ def removeversionedannotation():
 
 #@overlay/match by=overlay.subset({"kind":"ConfigMap","metadata":{"name": "antrea-ca"}})
 ---
-kind: ConfigMap
 metadata:
   name: antrea-ca
   annotations:
     #@overlay/remove
     kapp.k14s.io/versioned: ""
 
-#@overlay/match by=overlay.subset({"kind":"ConfigMap","metadata":{"name": "antrea-config-b59fc7d2b4"}})
+#@overlay/match by=antrea_config_regex_match, expects="0+"
 ---
-kind: ConfigMap
 metadata:
-  name: antrea-config-b59fc7d2b4
   annotations:
     #@overlay/remove
     kapp.k14s.io/versioned: ""
