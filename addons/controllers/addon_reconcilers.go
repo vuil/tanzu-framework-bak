@@ -221,6 +221,8 @@ func (r *AddonReconciler) reconcileAddonDelete(
 	clusterClient := util.GetClientFromAddonSecret(addonSecret, r.Client, remoteClusterClient)
 
 	var reconcilerKey string
+	// When deleting, check if the corresponding packageInstall is created.
+	// If so, delete packageInstall CR. Otherwise, delete App CR.
 	if ok, _ := util.IsPackageInstallPresent(ctx, clusterClient, addonSecret, r.Config.AddonNamespace); ok {
 		log.Info("Deleting PackageInstall")
 		reconcilerKey = constants.TKGPackageReconcilerKey

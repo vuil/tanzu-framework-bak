@@ -30,7 +30,7 @@ type PackageReconciler struct {
 }
 
 // reconcileCorePackageRepository reconciles the core package repository in the cluster
-func (r PackageReconciler) reconcileCorePackageRepository(
+func (r *PackageReconciler) reconcileCorePackageRepository(
 	imageRepository string,
 	bom *bomtypes.Bom) error {
 
@@ -71,7 +71,7 @@ func (r PackageReconciler) reconcileCorePackageRepository(
 	return nil
 }
 
-func (r PackageReconciler) ReconcileAddonKappResourceNormal(
+func (r *PackageReconciler) ReconcileAddonKappResourceNormal(
 	remoteApp bool,
 	remoteCluster *clusterapiv1alpha3.Cluster,
 	addonSecret *corev1.Secret,

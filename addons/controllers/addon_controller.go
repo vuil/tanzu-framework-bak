@@ -272,7 +272,8 @@ func (r *AddonReconciler) reconcileNormal(
 		result ctrl.Result
 	)
 	// Reconcile core package repository in the cluster
-	err = PackageReconciler{ctx: ctx, log: log, clusterClient: remoteClient, Config: r.Config}.reconcileCorePackageRepository(imageRepository, bom)
+	pkgReconciler := &PackageReconciler{ctx: ctx, log: log, clusterClient: remoteClient, Config: r.Config}
+	err = pkgReconciler.reconcileCorePackageRepository(imageRepository, bom)
 	if err != nil {
 		log.Error(err, "Error reconciling core package repository")
 		errors = append(errors, err)
@@ -531,9 +532,9 @@ func (r *AddonReconciler) GetAddonKappResourceReconciler(
 	reconcilerType string) (error, AddonKappResourceReconciler) {
 	switch reconcilerType {
 	case constants.TKGAppReconcilerKey:
-		return nil, AppReconciler{ctx: ctx, log: log, clusterClient: clusterClient, Config: r.Config}
+		return nil, &AppReconciler{ctx: ctx, log: log, clusterClient: clusterClient, Config: r.Config}
 	case constants.TKGPackageReconcilerKey:
-		return nil, PackageReconciler{ctx: ctx, log: log, clusterClient: clusterClient, Config: r.Config}
+		return nil, &PackageReconciler{ctx: ctx, log: log, clusterClient: clusterClient, Config: r.Config}
 	}
 	return fmt.Errorf("invalid reconciler type: %s", reconcilerType), nil
 

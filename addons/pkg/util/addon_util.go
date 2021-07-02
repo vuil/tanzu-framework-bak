@@ -6,6 +6,7 @@ package util
 import (
 	"context"
 	"fmt"
+	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	"strconv"
 
 	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
@@ -113,7 +114,8 @@ func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository string, imagePull
 		return nil, err
 	}
 
-	return ImageInfoBytes, nil
+	outputBytes := append([]byte(constants.TKGDataValueFormatString), ImageInfoBytes...)
+	return outputBytes, nil
 }
 
 // GetApp gets the app CR from cluster

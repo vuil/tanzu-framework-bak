@@ -28,7 +28,7 @@ type AppReconciler struct {
 }
 
 // nolint:funlen
-func (r AppReconciler) ReconcileAddonKappResourceNormal(
+func (r *AppReconciler) ReconcileAddonKappResourceNormal(
 	remoteApp bool,
 	remoteCluster *clusterapiv1alpha3.Cluster,
 	addonSecret *corev1.Secret,
@@ -138,7 +138,7 @@ func (r AppReconciler) ReconcileAddonKappResourceNormal(
 }
 
 // nolint:dupl
-func (r AppReconciler) ReconcileAddonKappResourceDelete(
+func (r *AppReconciler) ReconcileAddonKappResourceDelete(
 	addonSecret *corev1.Secret) error {
 
 	app := &kappctrl.App{
