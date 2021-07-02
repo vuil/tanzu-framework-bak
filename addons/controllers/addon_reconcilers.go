@@ -223,7 +223,12 @@ func (r *AddonReconciler) reconcileAddonDelete(
 	var reconcilerKey string
 	// When deleting, check if the corresponding packageInstall is created.
 	// If so, delete packageInstall CR. Otherwise, delete App CR.
-	if ok, _ := util.IsPackageInstallPresent(ctx, clusterClient, addonSecret, r.Config.AddonNamespace); ok {
+	pkgiPresent, err := util.IsPackageInstallPresent(ctx, clusterClient, addonSecret, r.Config.AddonNamespace)
+	if err != nil {
+		log.Error(err, "Error checking if PackageInstall is present", constants.AddonNameLogKey, addonName)
+		return err
+	}
+	if pkgiPresent {
 		log.Info("Deleting PackageInstall")
 		reconcilerKey = constants.TKGPackageReconcilerKey
 	} else {
