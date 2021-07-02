@@ -64,6 +64,6 @@ metadata:
   namespace: tkg-system
 type: Opaque
 stringData:
-  values.yaml: #@ yaml.encode(tanzuaddonsmanagerdatavalues())
+  values.yaml: #@ ValuesFormatStr.format(yaml.encode(tanzuaddonsmanagerdatavalues()))
 
 #@ end
