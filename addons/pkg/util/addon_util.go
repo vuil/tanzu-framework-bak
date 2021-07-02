@@ -6,10 +6,9 @@ package util
 import (
 	"context"
 	"fmt"
-	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	"strconv"
 
-	"github.com/vmware-tanzu-private/core/addons/pkg/vars"
+	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
 
 	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
 	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
