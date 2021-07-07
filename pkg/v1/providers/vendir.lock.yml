@@ -2,26 +2,26 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Remove old docs to avoid confusion (#576)...
-      sha: 8960010310b8d2ffcd9d67a6807d134c31ca8394
+      commitTitle: Add package templates Antrea 0.13.3 (#953)...
+      sha: df9a9cdea9886f1f5cc2856994739539cd5c5663
       tags:
-      - v0.6.0-dev.2-5-g8960010
+      - v0.7.0-dev.1-56-gdf9a9cd
     path: .
   path: ytt/vendir/vsphere_cpi/_ytt_lib
 - contents:
   - git:
-      commitTitle: Remove old docs to avoid confusion (#576)...
-      sha: 8960010310b8d2ffcd9d67a6807d134c31ca8394
+      commitTitle: Add package templates Antrea 0.13.3 (#953)...
+      sha: df9a9cdea9886f1f5cc2856994739539cd5c5663
       tags:
-      - v0.6.0-dev.2-5-g8960010
+      - v0.7.0-dev.1-56-gdf9a9cd
     path: .
   path: ytt/vendir/cni/_ytt_lib
 - contents:
   - git:
-      commitTitle: Remove old docs to avoid confusion (#576)...
-      sha: 8960010310b8d2ffcd9d67a6807d134c31ca8394
+      commitTitle: Add package templates Antrea 0.13.3 (#953)...
+      sha: df9a9cdea9886f1f5cc2856994739539cd5c5663
       tags:
-      - v0.6.0-dev.2-5-g8960010
+      - v0.7.0-dev.1-56-gdf9a9cd
     path: .
   path: ytt/vendir/kapp-controller/_ytt_lib
 kind: LockConfig

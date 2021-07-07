@@ -1705,7 +1705,13 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: antrea/antrea-ubuntu:v0.11.3
+        - name: SERVICEACCOUNT_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: ANTREA_CONFIG_MAP_NAME
+          value: antrea-config-ctb8mftc58
+        image: antrea/antrea-ubuntu:v0.13.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 5
@@ -1886,7 +1892,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: antrea/antrea-ubuntu:v0.11.3
+        image: antrea/antrea-ubuntu:v0.13.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
@@ -1947,7 +1953,7 @@ spec:
         - --log_file_max_num=4
         command:
         - start_ovs
-        image: antrea/antrea-ubuntu:v0.11.3
+        image: antrea/antrea-ubuntu:v0.13.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
@@ -1982,7 +1988,7 @@ spec:
       initContainers:
       - command:
         - install_cni
-        image: antrea/antrea-ubuntu:v0.11.3
+        image: antrea/antrea-ubuntu:v0.13.3
         imagePullPolicy: IfNotPresent
         name: install-cni
         resources:

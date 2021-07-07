@@ -1,7 +1,7 @@
 #@data/values
----
+#@overlay/match-child-defaults missing_ok=True
 
-namespace: kube-system
+---
 infraProvider: vsphere
 antrea:
   config:

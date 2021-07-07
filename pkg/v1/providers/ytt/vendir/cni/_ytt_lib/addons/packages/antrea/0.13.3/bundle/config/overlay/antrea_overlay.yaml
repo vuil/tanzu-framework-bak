@@ -208,11 +208,11 @@ metadata:
   annotations:
     kapp.k14s.io/versioned: ""
 
-#@overlay/match by=overlay.subset({"kind":"ConfigMap","metadata":{"name": "antrea-config-b59fc7d2b4"}})
+#@overlay/match by=overlay.subset({"kind":"ConfigMap","metadata":{"name": "antrea-config-ctb8mftc58"}})
 ---
 kind: ConfigMap
 metadata:
-  name: antrea-config-b59fc7d2b4
+  name: antrea-config-ctb8mftc58
   annotations:
     #@overlay/match missing_ok=True
     kapp.k14s.io/versioned: ""
