@@ -41,6 +41,7 @@ const (
 	deleteRequeueAfter = 10 * time.Second
 )
 
+// AddonKappResourceReconciler is the interface for Kapp related reconcilers
 type AddonKappResourceReconciler interface {
 	ReconcileAddonKappResourceNormal(
 		remoteApp bool,
@@ -525,17 +526,18 @@ func logOperationResult(log logr.Logger, resourceName string, result controlleru
 	}
 }
 
+// GetAddonKappResourceReconciler gets the correct kapp resource reconciler
 func (r *AddonReconciler) GetAddonKappResourceReconciler(
 	ctx context.Context,
 	log logr.Logger,
 	clusterClient client.Client,
-	reconcilerType string) (error, AddonKappResourceReconciler) {
+	reconcilerType string) (AddonKappResourceReconciler, error) {
+
 	switch reconcilerType {
 	case constants.TKGAppReconcilerKey:
-		return nil, &AppReconciler{ctx: ctx, log: log, clusterClient: clusterClient, Config: r.Config}
+		return &AppReconciler{ctx: ctx, log: log, clusterClient: clusterClient, Config: r.Config}, nil
 	case constants.TKGPackageReconcilerKey:
-		return nil, &PackageReconciler{ctx: ctx, log: log, clusterClient: clusterClient, Config: r.Config}
+		return &PackageReconciler{ctx: ctx, log: log, clusterClient: clusterClient, Config: r.Config}, nil
 	}
-	return fmt.Errorf("invalid reconciler type: %s", reconcilerType), nil
-
+	return nil, fmt.Errorf("invalid reconciler type: %s", reconcilerType)
 }

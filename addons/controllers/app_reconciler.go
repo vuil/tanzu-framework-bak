@@ -1,3 +1,6 @@
+// Copyright 2021 VMware, Inc. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package controllers
 
 import (
@@ -20,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// AppReconciler reconcile kapp App related CRs
 type AppReconciler struct {
 	log           logr.Logger
 	ctx           context.Context
@@ -27,8 +31,8 @@ type AppReconciler struct {
 	Config        addonconfig.Config
 }
 
-// nolint:funlen
-func (r *AppReconciler) ReconcileAddonKappResourceNormal(
+// ReconcileAddonKappResourceNormal reconciles and creates App CR
+func (r *AppReconciler) ReconcileAddonKappResourceNormal( // nolint:funlen
 	remoteApp bool,
 	remoteCluster *clusterapiv1alpha3.Cluster,
 	addonSecret *corev1.Secret,
@@ -137,8 +141,8 @@ func (r *AppReconciler) ReconcileAddonKappResourceNormal(
 	return nil
 }
 
-// nolint:dupl
-func (r *AppReconciler) ReconcileAddonKappResourceDelete(
+// ReconcileAddonKappResourceDelete reconciles and deletes App CR
+func (r *AppReconciler) ReconcileAddonKappResourceDelete( // nolint:dupl
 	addonSecret *corev1.Secret) error {
 
 	app := &kappctrl.App{

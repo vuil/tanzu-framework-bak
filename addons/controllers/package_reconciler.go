@@ -1,3 +1,6 @@
+// Copyright 2021 VMware, Inc. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package controllers
 
 import (
@@ -22,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// PackageReconciler reconcile kapp Package related CRs
 type PackageReconciler struct {
 	ctx           context.Context
 	log           logr.Logger
@@ -71,7 +75,8 @@ func (r *PackageReconciler) reconcileCorePackageRepository(
 	return nil
 }
 
-func (r *PackageReconciler) ReconcileAddonKappResourceNormal(
+// ReconcileAddonKappResourceNormal reconciles and creates packageinstall CR
+func (r *PackageReconciler) ReconcileAddonKappResourceNormal( // nolint:funlen
 	remoteApp bool,
 	remoteCluster *clusterapiv1alpha3.Cluster,
 	addonSecret *corev1.Secret,
@@ -228,8 +233,8 @@ func (r *PackageReconciler) ReconcileAddonKappResourceNormal(
 	return nil
 }
 
-// nolint:dupl
-func (r PackageReconciler) ReconcileAddonKappResourceDelete(
+// ReconcileAddonKappResourceDelete reconciles and deletes packageinstall CR
+func (r *PackageReconciler) ReconcileAddonKappResourceDelete( // nolint:dupl
 	addonSecret *corev1.Secret) error {
 
 	pkgi := &pkgiv1alpha1.PackageInstall{

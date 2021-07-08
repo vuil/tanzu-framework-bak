@@ -92,7 +92,7 @@ func GetClientFromAddonSecret(addonSecret *corev1.Secret, localClient, remoteCli
 }
 
 // GetImageInfo gets the image Info of an addon
-func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository string, imagePullPolicy string, bom *bomtypes.Bom) ([]byte, error) {
+func GetImageInfo(addonConfig *bomtypes.Addon, imageRepository, imagePullPolicy string, bom *bomtypes.Bom) ([]byte, error) {
 	componentRefs := addonConfig.AddonContainerImages
 
 	addonImageInfo := &addontypes.AddonImageInfo{Info: addontypes.ImageInfo{ImageRepository: imageRepository, ImagePullPolicy: imagePullPolicy, Images: map[string]addontypes.Image{}}}

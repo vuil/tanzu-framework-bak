@@ -131,7 +131,6 @@ func (r *AddonReconciler) reconcileAddonRole(
 	return nil
 }
 
-// nolint:dupl
 func (r *AddonReconciler) reconcileAddonDataValuesSecretDelete(
 	ctx context.Context,
 	log logr.Logger,
@@ -159,7 +158,8 @@ func (r *AddonReconciler) reconcileAddonDataValuesSecretDelete(
 	return nil
 }
 
-func (r AddonReconciler) ReconcileAddonDataValuesSecretNormal(
+// ReconcileAddonDataValuesSecretNormal reconciles addons data values secrets
+func (r *AddonReconciler) ReconcileAddonDataValuesSecretNormal(
 	ctx context.Context,
 	log logr.Logger,
 	clusterClient client.Client,
@@ -235,7 +235,7 @@ func (r *AddonReconciler) reconcileAddonDelete(
 		log.Info("Deleting App")
 		reconcilerKey = constants.TKGAppReconcilerKey
 	}
-	err, kappResourceReconciler := r.GetAddonKappResourceReconciler(ctx, logWithContext, clusterClient, reconcilerKey)
+	kappResourceReconciler, err := r.GetAddonKappResourceReconciler(ctx, logWithContext, clusterClient, reconcilerKey)
 	if err != nil {
 		log.Error(err, "Error finding kapp resource reconciler")
 		return err
@@ -306,7 +306,7 @@ func (r *AddonReconciler) reconcileAddonNormal(
 		log.Info("Reconciling App")
 		reconcilerKey = constants.TKGAppReconcilerKey
 	}
-	err, kappResourceReconciler := r.GetAddonKappResourceReconciler(ctx, logWithContext, clusterClient, reconcilerKey)
+	kappResourceReconciler, err := r.GetAddonKappResourceReconciler(ctx, logWithContext, clusterClient, reconcilerKey)
 	if err != nil {
 		log.Error(err, "Error finding kapp resource reconciler")
 		return err
