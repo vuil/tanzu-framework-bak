@@ -20,6 +20,7 @@ kappController:
     pullPolicy: IfNotPresent
 #@ end
   deployment:
+    concurrency: 4
     hostNetwork: true
     priorityClassName: system-cluster-critical
 #@ if data.values.TKG_CLUSTER_ROLE == "workload": #! For mgmt cluster tolerations needs to be added using overlay due to ytt's array handling behavior
