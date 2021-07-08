@@ -43,24 +43,3 @@ spec:
         - image: #@ "{}/{}:{}".format(antreaImageRepo, antreaImage.imagePath, antreaImage.tag)
 
 #@ end
-
-
-#! kapp.k14s.io/versioned need to be removed from any resources because it prevents App CR from taking over the resources
-#@ def removeversionedannotation():
-
-#@overlay/match by=overlay.subset({"kind":"ConfigMap","metadata":{"name": "antrea-ca"}})
----
-metadata:
-  name: antrea-ca
-  annotations:
-    #@overlay/remove
-    kapp.k14s.io/versioned: ""
-
-#@overlay/match by=antrea_config_regex_match, expects="0+"
----
-metadata:
-  annotations:
-    #@overlay/remove
-    kapp.k14s.io/versioned: ""
-
-#@ end
