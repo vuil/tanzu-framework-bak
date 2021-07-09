@@ -10,7 +10,9 @@ import (
 	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
 	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
 	addontypes "github.com/vmware-tanzu-private/core/addons/pkg/types"
+	"github.com/vmware-tanzu-private/core/addons/pkg/util"
 	bomtypes "github.com/vmware-tanzu-private/core/pkg/v1/tkr/pkg/types"
+
 	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
 	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
 	versions "github.com/vmware-tanzu/carvel-vendir/pkg/vendir/versions/v1alpha1"
@@ -18,7 +20,6 @@ import (
 	clusterapiv1alpha3 "sigs.k8s.io/cluster-api/api/v1alpha3"
 
 	"github.com/go-logr/logr"
-	"github.com/vmware-tanzu-private/core/addons/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

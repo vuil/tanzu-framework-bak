@@ -5,7 +5,6 @@ package controllers
 
 import (
 	"context"
-	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -30,9 +29,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
-
+	addonconfig "github.com/vmware-tanzu-private/core/addons/pkg/config"
 	runtanzuv1alpha1 "github.com/vmware-tanzu-private/core/apis/run/v1alpha1"
+
+	kappctrl "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/kappctrl/v1alpha1"
 	pkgiv1alpha1 "github.com/vmware-tanzu/carvel-kapp-controller/pkg/apis/packaging/v1alpha1"
 	runtanzuv1alpha1 "github.com/vmware-tanzu/tanzu-framework/apis/run/v1alpha1"
 )
