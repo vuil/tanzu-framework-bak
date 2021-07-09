@@ -15,9 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/vmware-tanzu-private/core/addons/pkg/constants"
-	"github.com/vmware-tanzu-private/core/addons/pkg/util"
-	bomtypes "github.com/vmware-tanzu-private/core/pkg/v1/tkr/pkg/types"
+	"github.com/vmware-tanzu/tanzu-framework/addons/pkg/constants"
+	"github.com/vmware-tanzu/tanzu-framework/addons/pkg/util"
+	bomtypes "github.com/vmware-tanzu/tanzu-framework/pkg/v1/tkr/pkg/types"
 )
 
 func (r *AddonReconciler) reconcileAddonNamespace(
